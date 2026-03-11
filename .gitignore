@@ -1,10 +1,10 @@
 # ── Gradle ───────────────────────────────────
-.gradle/
+/.gradle/
+/gradle/
+/gradlew
+/gradlew.bat
 build/
 out/
-*.class
-*.jar
-!gradle/wrapper/gradle-wrapper.jar
 
 # ── Maven ────────────────────────────────────
 target/
