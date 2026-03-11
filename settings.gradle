@@ -5,4 +5,4 @@ plugins {
 rootProject.name = 'Banka-1-Backend'
 
 include 'company-observability-starter'
-include 'NotificationService'
+include 'notification-service'

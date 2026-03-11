@@ -9,13 +9,13 @@ on:
     paths:
       - 'company-observability-starter/**'
       # TODO: - 'user-service/**'
-      # TODO: - 'notification-service/**'
+      - 'notification-service/**'
   pull_request:
     branches: [main, dev]
     paths:
       - 'company-observability-starter/**'
       # TODO: - 'user-service/**'
-      # TODO: - 'notification-service/**'
+      - 'notification-service/**'
 
 jobs:
 
@@ -37,8 +37,8 @@ jobs:
               - 'company-observability-starter/**'
             # TODO: user-service:
             #   - 'user-service/**'
-            # TODO: notification-service:
-            #   - 'notification-service/**'
+            notification-service:
+              - 'notification-service/**'
 
   # ── Build & Test ──────────────────────────────────────────────────────────
   build-and-test:
