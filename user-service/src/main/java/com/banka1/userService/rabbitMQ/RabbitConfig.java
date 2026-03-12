@@ -13,27 +13,38 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Spring konfiguracija RabbitMQ infrastrukture.
+ * Definiše queue, direct exchange, binding i JSON konverter za serijalizaciju poruka.
+ */
 @Configuration
 public class RabbitConfig {
 
+    /** Naziv RabbitMQ queue-a na koji stizu email poruke. */
     @Value("${rabbitmq.queue}")
     private String queueName;
 
+    /** Naziv direct exchange-a na koji se poruke objavljuju. */
     @Value("${rabbitmq.exchange}")
     private String exchangeName;
 
+    /** Routing kljuc koji vezuje exchange za queue. */
     @Value("${rabbitmq.routing-key}")
     private String routingKey;
 
+    /** Hostname RabbitMQ servera. */
     @Value("${spring.rabbitmq.host}")
     private String rabbitHost;
 
+    /** Port RabbitMQ servera. */
     @Value("${spring.rabbitmq.port}")
     private int rabbitPort;
 
+    /** Korisnicko ime za autentifikaciju na RabbitMQ serveru. */
     @Value("${spring.rabbitmq.username}")
     private String rabbitUsername;
 
+    /** Lozinka za autentifikaciju na RabbitMQ serveru. */
     @Value("${spring.rabbitmq.password}")
     private String rabbitPassword;
 
@@ -59,13 +70,14 @@ public class RabbitConfig {
      * @return konfigurisan RabbitTemplate
      */
     @Bean
-    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory,MessageConverter jacksonMessageConverter) {
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory, MessageConverter jacksonMessageConverter) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);
         template.setMessageConverter(jacksonMessageConverter);
         return template;
     }
+
     /**
-     * Registruje Jackson konverter za serijalizaciju RabbitMQ poruka.
+     * Registruje Jackson konverter za serijalizaciju RabbitMQ poruka u JSON format.
      *
      * @return JSON message converter
      */
@@ -75,9 +87,9 @@ public class RabbitConfig {
     }
 
     /**
-     * Kreira trajni RabbitMQ queue.
+     * Kreira trajni RabbitMQ queue sa konfigurisanim nazivom.
      *
-     * @return deklarisani queue
+     * @return deklarisani durable queue
      */
     @Bean
     public Queue queue() {

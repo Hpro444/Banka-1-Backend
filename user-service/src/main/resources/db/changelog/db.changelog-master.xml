@@ -8,5 +8,6 @@
     <!-- Uključujemo naše SQL migracije redosledom kojim treba da se izvrše -->
     <include file="db/changelog/001-initial-schema.sql"/>
     <include file="db/changelog/002-seed-data.sql"/>
+    <include file="db/changelog/003-email-username-indexes.sql"/>
 
 </databaseChangeLog>

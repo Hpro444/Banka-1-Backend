@@ -2,8 +2,15 @@ package com.banka1.userService.exception;
 
 import lombok.Getter;
 
+/**
+ * Izuzetak koji se baca za ocekivane greske poslovne logike.
+ * Nosi strukturiran {@link ErrorCode} koji {@code GlobalExceptionHandler} mapira
+ * na odgovarajuci HTTP status i telo odgovora.
+ */
 @Getter
 public class BusinessException extends RuntimeException {
+
+    /** Strukturiran kod greske koji opisuje tip i ozbiljnost poslovne greske. */
     private final ErrorCode errorCode;
 
     /**

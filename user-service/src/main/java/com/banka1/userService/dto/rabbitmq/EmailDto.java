@@ -6,14 +6,27 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * DTO koji se salje RabbitMQ email servisu.
+ * Sadrzi podatke potrebne za generisanje odgovarajuceg email-a.
+ * Polja sa {@code null} vrednoscu se iskljucuju iz JSON serijalizacije.
+ */
 @NoArgsConstructor
 @Getter
 @Setter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class EmailDto {
+
+    /** Email adresa primaoca. */
     private String userEmail;
+
+    /** Ime ili korisnicko ime primaoca (koristi se u tekstu mejla). */
     private String username;
+
+    /** Tip email notifikacije koji odredjuje sadrzaj i sablonu mejla. */
     private EmailType emailType;
+
+    /** Opcioni objekat sa linkom za reset lozinke ili aktivaciju naloga. */
     private ResetLinkDto resetLinkDto;
 
     /**
@@ -28,7 +41,7 @@ public class EmailDto {
         this.userEmail = userEmail;
         this.username = username;
         this.emailType = emailType;
-        resetLinkDto=new ResetLinkDto(link,emailType);
+        resetLinkDto = new ResetLinkDto(link, emailType);
     }
 
     /**

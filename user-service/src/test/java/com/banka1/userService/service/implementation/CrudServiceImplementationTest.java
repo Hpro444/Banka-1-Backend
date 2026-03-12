@@ -9,6 +9,7 @@ import com.banka1.userService.dto.requests.EmployeeEditRequestDto;
 import com.banka1.userService.dto.requests.EmployeeUpdateRequestDto;
 import com.banka1.userService.dto.responses.EmployeeResponseDto;
 import com.banka1.userService.exception.BusinessException;
+import com.banka1.userService.exception.ErrorCode;
 import com.banka1.userService.mappers.EmployeeMapper;
 import com.banka1.userService.rabbitMQ.RabbitClient;
 import com.banka1.userService.repository.ConfirmationTokenRepository;
@@ -173,6 +174,28 @@ class CrudServiceImplementationTest {
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().getFirst().getUsername()).isEqualTo("ana");
+    }
+
+    @Test
+    void editEmployeeThrowsWhenJwtMissingIdClaim() {
+        EmployeeEditRequestDto request = new EmployeeEditRequestDto("Ana", "Anic", "123", "Adresa", "Senior Agent", "IT");
+        Jwt jwt = jwtWithClaims(Map.of("roles", "BASIC")); // no "id" claim
+
+        assertThatThrownBy(() -> crudService.editEmployee(jwt, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_TOKEN);
+    }
+
+    @Test
+    void createEmployeeThrowsForDuplicateUsername() {
+        EmployeeCreateRequestDto request = createRequest();
+        when(zaposlenRepository.existsByEmail("nikola@banka.com")).thenReturn(false);
+        when(zaposlenRepository.existsByUsername("nikola")).thenReturn(true);
+
+        assertThatThrownBy(() -> crudService.createEmployee(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Username: nikola");
     }
 
     private EmployeeCreateRequestDto createRequest() {

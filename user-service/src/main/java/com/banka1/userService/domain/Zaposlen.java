@@ -17,6 +17,11 @@ import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * JPA entitet koji predstavlja zaposlenog u banci.
+ * Implementira soft delete – fizicko brisanje je zamenjeno postavljanjem zastavice {@code deleted = true},
+ * a {@code @SQLRestriction} automatski iskljucuje obrisane redove iz svih upita.
+ */
 @Entity
 @Table(
         name = "employees",
@@ -25,61 +30,76 @@ import java.util.Set;
                 @Index(name = "idx_employees_pozicija", columnList = "pozicija")
         }
 )
-@SQLDelete(sql = "UPDATE employees SET deleted = true WHERE id = ? AND version = ?") // Sprecava hard delete,
-@SQLRestriction("deleted = false") //
+@SQLDelete(sql = "UPDATE employees SET deleted = true WHERE id = ? AND version = ?")
+@SQLRestriction("deleted = false")
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 @Setter
 public class Zaposlen extends BaseEntity {
+
+    /** Ime zaposlenog. */
     @NotBlank
     @Column(nullable = false)
     private String ime;
 
+    /** Prezime zaposlenog. */
     @NotBlank
     @Column(nullable = false)
     private String prezime;
 
+    /** Datum rodjenja zaposlenog. */
     @Column(nullable = false)
     private LocalDate datumRodjenja;
 
+    /** Pol zaposlenog (M ili Z). */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Pol pol;
 
+    /** Email adresa zaposlenog – mora biti jedinstvena u sistemu. */
     @NotBlank
     @Email
     @Column(nullable = false, unique = true)
     private String email;
 
+    /** Broj telefona zaposlenog (opcioni). */
     private String brojTelefona;
 
+    /** Adresa stanovanja zaposlenog (opciona). */
     private String adresa;
 
+    /** Korisnicko ime – mora biti jedinstveno u sistemu. */
     @NotBlank
-    @Column(nullable = false,unique = true)
+    @Column(nullable = false, unique = true)
     private String username;
 
-    // Sifra je hesirana
+    /** BCrypt/Argon2 hash lozinke zaposlenog. */
     private String password;
 
+    /** Pozicija (radno mesto) zaposlenog. */
     @NotBlank
     @Column(nullable = false)
     private String pozicija;
 
+    /** Departman u kome zaposleni radi. */
     @NotBlank
     @Column(nullable = false)
     private String departman;
 
+    /** Indikator da li je nalog zaposlenog aktivan. */
     private boolean aktivan;
 
+    /** RBAC uloga zaposlenog koja odredjuje nivo pristupa. */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
 
+    /** Aktivacioni / reset token vezan za zaposlenog (opcioni). */
     @OneToOne(mappedBy = "zaposlen")
     private ConfirmationToken confirmationToken;
 
+    /** Skup pojedinacnih permisija dodeljenih zaposlenom na osnovu njegove uloge. */
     @ElementCollection(targetClass = Permission.class)
     @CollectionTable(
             name = "zaposlen_permissions",

@@ -1,6 +1,5 @@
 package com.banka1.userService.controller;
 
-import com.banka1.userService.domain.enums.Role;
 import com.banka1.userService.dto.requests.EmployeeCreateRequestDto;
 import com.banka1.userService.dto.requests.EmployeeEditRequestDto;
 import com.banka1.userService.dto.requests.EmployeeUpdateRequestDto;
@@ -16,47 +15,50 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
+/**
+ * REST kontroler koji izlaze endpoint-e za CRUD operacije nad zaposlenima.
+ * Svi endpoint-i su dostupni pod baznom putanjom {@code /employees}.
+ * Kreiranje i brisanje su ograniceni na ADMIN ulogu; azuriranje zahteva AGENT ili jacu ulogu.
+ */
 @RestController
 @RequestMapping("/employees")
 @AllArgsConstructor
 @Validated
 public class CrudController {
 
+    /** Servis koji sadrzi poslovnu logiku upravljanja zaposlenima. */
     private final CrudService crudService;
 
     /**
-     * Kreira novog zaposlenog.
+     * Kreira novog zaposlenog. Dostupno samo korisnicima sa ADMIN ulogom.
      *
      * @param jwt JWT trenutno prijavljenog korisnika
      * @param employeeDto podaci za kreiranje zaposlenog
-     * @return kreirani zaposleni
+     * @return kreirani zaposleni sa statusom 201 Created
      */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<EmployeeResponseDto> createEmployee(@AuthenticationPrincipal Jwt jwt,@RequestBody @Valid EmployeeCreateRequestDto employeeDto) {
+    public ResponseEntity<EmployeeResponseDto> createEmployee(@AuthenticationPrincipal Jwt jwt, @RequestBody @Valid EmployeeCreateRequestDto employeeDto) {
         EmployeeResponseDto created = crudService.createEmployee(employeeDto);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
 
     /**
-     * Vrsi pretragu zaposlenih po pojedinacnim filterima.
+     * Vrsi pretragu zaposlenih po pojedinacnim filterima uz paginaciju.
      *
      * @param jwt JWT trenutno prijavljenog korisnika
-     * @param ime filter po imenu
-     * @param prezime filter po prezimenu
-     * @param email filter po email adresi
-     * @param pozicija filter po poziciji
-     * @param departman filter po departmanu
-     * @param page broj stranice
-     * @param size velicina stranice
+     * @param ime filter po imenu (opcioni)
+     * @param prezime filter po prezimenu (opcioni)
+     * @param email filter po email adresi (opcioni)
+     * @param pozicija filter po poziciji (opcioni)
+     * @param departman filter po departmanu (opcioni)
+     * @param page broj stranice (pocetak od 0)
+     * @param size velicina stranice (1–100)
      * @return stranica zaposlenih koji odgovaraju filterima
      */
     @GetMapping
@@ -71,17 +73,15 @@ public class CrudController {
             @RequestParam(defaultValue = "10") @Min(value = 1) @Max(value = 100) int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
-
         Page<EmployeeResponseDto> response = crudService.searchEmployees(ime, prezime, email, pozicija, departman, pageable);
-
-        return ResponseEntity.ok(response); // OK 200
+        return ResponseEntity.ok(response);
     }
 
     /**
-     * Vrsi globalnu pretragu zaposlenih preko jedinstvenog upita.
+     * Vrsi globalnu pretragu zaposlenih preko jedinstvenog slobodnog tekst upita.
      *
      * @param jwt JWT trenutno prijavljenog korisnika
-     * @param query tekstualni upit za pretragu
+     * @param query tekstualni upit za pretragu (opcioni)
      * @param page broj stranice
      * @param size velicina stranice
      * @return stranica rezultata globalne pretrage
@@ -95,12 +95,12 @@ public class CrudController {
     ) {
         Pageable pageable = PageRequest.of(page, size);
         Page<EmployeeResponseDto> response = crudService.globalSearchEmployees(query, pageable);
-
         return ResponseEntity.ok(response);
     }
 
     /**
-     * Azurira podatke zaposlenog po identifikatoru.
+     * Azurira podatke zaposlenog po identifikatoru. Dostupno korisnicima sa AGENT ili jacom ulogom.
+     * Vraca 202 Accepted ako je nalog deaktiviran, inace 200 OK.
      *
      * @param jwt JWT trenutno prijavljenog korisnika
      * @param id identifikator zaposlenog
@@ -114,15 +114,14 @@ public class CrudController {
             @PathVariable Long id,
             @RequestBody @Valid EmployeeUpdateRequestDto updateDto
     ) {
-
         EmployeeResponseDto updated = crudService.updateEmployee(jwt, id, updateDto);
-        if(updateDto.getAktivan()!=null && !updateDto.getAktivan())
-            return new ResponseEntity<>(updated,HttpStatus.ACCEPTED);
-        return ResponseEntity.ok(updated); // OK 200
+        if (updateDto.getAktivan() != null && !updateDto.getAktivan())
+            return new ResponseEntity<>(updated, HttpStatus.ACCEPTED);
+        return ResponseEntity.ok(updated);
     }
 
     /**
-     * Omogucava prijavljenom korisniku da izmeni sopstvene podatke.
+     * Omogucava prijavljenom korisniku da izmeni sopstvene podatke profila.
      *
      * @param jwt JWT trenutno prijavljenog korisnika
      * @param editRequestDto podaci za samostalnu izmenu profila
@@ -133,22 +132,21 @@ public class CrudController {
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody @Valid EmployeeEditRequestDto editRequestDto
     ) {
-
         EmployeeResponseDto updated = crudService.editEmployee(jwt, editRequestDto);
-        return ResponseEntity.ok(updated); // OK 200
+        return ResponseEntity.ok(updated);
     }
 
     /**
-     * Soft-brise zaposlenog po identifikatoru.
+     * Soft-brise zaposlenog po identifikatoru. Dostupno samo korisnicima sa ADMIN ulogom.
      *
      * @param jwt JWT trenutno prijavljenog korisnika
      * @param id identifikator zaposlenog za brisanje
-     * @return prazan odgovor sa statusom 204
+     * @return prazan odgovor sa statusom 204 No Content
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteEmployee(@AuthenticationPrincipal Jwt jwt,@PathVariable Long id) {
+    public ResponseEntity<Void> deleteEmployee(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         crudService.deleteEmployee(id);
-        return new ResponseEntity<>(HttpStatus.ACCEPTED);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 }

@@ -10,28 +10,40 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
+/**
+ * Bazni JPA entitet koji sadrzi zajednicka polja za sve entitete u aplikaciji.
+ * Pruza automatsko upravljanje primarnim kljucem, verzijom za optimisticko zakljucavanje,
+ * zastavom za soft delete i vremenskim markama kreiranja i azuriranja.
+ */
 @MappedSuperclass
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
 public class BaseEntity {
+
+    /** Primarni kljuc entiteta, automatski generisan. */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Verzija za optimisticko zakljucavanje – Hibernate automatski povecava vrednost pri svakom azuriranju. */
     @Version
     private Long version;
 
-    // Za slucaj da uvek budemo zeleli da radimo soft delete, kobinujemo ovo sa SQLDelete anotacijom na entityju
+    /**
+     * Zastavica za soft delete.
+     * Kada je {@code true}, red se tretira kao obrisan, ali fizicki ostaje u bazi.
+     */
     @Column(name = "deleted", nullable = false)
     private boolean deleted = false;
 
-    // Ne moze da boli da imamo i ovo
+    /** Vreme kreiranja entiteta – postavljeno automatski i ne moze se menjati. */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    /** Vreme poslednjeg azuriranja entiteta – automatski se osvezava pri svakoj izmeni. */
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;

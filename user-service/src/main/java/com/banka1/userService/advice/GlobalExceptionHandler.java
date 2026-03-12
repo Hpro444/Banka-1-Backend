@@ -3,8 +3,8 @@ package com.banka1.userService.advice;
 import com.banka1.userService.dto.responses.ErrorResponseDto;
 import com.banka1.userService.exception.BusinessException;
 import com.banka1.userService.exception.ErrorCode;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.AmqpException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -14,19 +14,71 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
-@Slf4j // Lombok automatski ubacuje: private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+/**
+ * Centralizovani hendler gresaka za sve REST kontrolere.
+ * Mapira ocekivane i neocekivane izuzetke na standardizovane HTTP odgovore sa {@link ErrorResponseDto} telom.
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    /**
+     * Obradjuje greske narusavanja ogranicenja baze podataka (npr. duplikat unique kolone).
+     *
+     * @param ex izuzetak nastao pri krsenju integrity ogranicenja
+     * @return HTTP 409 Conflict odgovor sa kodom {@code ERR_CONSTRAINT_VIOLATION}
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponseDto> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        ErrorResponseDto error = new ErrorResponseDto(
+                "ERR_CONSTRAINT_VIOLATION",
+                "Podatak već postoji",
+                "Jedan od podataka je već u upotrebi."
+        );
+        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+    }
 
+    /**
+     * Obradjuje greske kada trazeni resurs ne postoji u kolekciji.
+     *
+     * @param ex izuzetak nastao pri pristupanju nepostojecem elementu
+     * @return HTTP 404 Not Found odgovor sa kodom {@code ERR_NOT_FOUND}
+     */
+    @ExceptionHandler(NoSuchElementException.class)
+    public ResponseEntity<ErrorResponseDto> handleNoSuchElement(NoSuchElementException ex) {
+        ErrorResponseDto error = new ErrorResponseDto(
+                "ERR_NOT_FOUND",
+                "Resurs nije pronađen",
+                ex.getMessage()
+        );
+        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+    }
 
+    /**
+     * Obradjuje greske neispravnih argumenata koji ne prolaze programsku validaciju.
+     *
+     * @param ex izuzetak nastao pri detektovanju neispravnog argumenta
+     * @return HTTP 400 Bad Request odgovor sa kodom {@code ERR_VALIDATION}
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponseDto> handleIllegalArgument(IllegalArgumentException ex) {
+        ErrorResponseDto error = new ErrorResponseDto(
+                "ERR_VALIDATION",
+                "Neispravni argumenti",
+                ex.getMessage()
+        );
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
 
+    /**
+     * Obradjuje greske komunikacije sa RabbitMQ brokerom.
+     *
+     * @param ex AMQP izuzetak nastao pri slanju poruke
+     * @return HTTP 500 Internal Server Error odgovor sa kodom {@code ERR_INTERNAL_SERVER}
+     */
     @ExceptionHandler(AmqpException.class)
     public ResponseEntity<ErrorResponseDto> handleRabbitMqException(AmqpException ex) {
-        // Logger + stacktrace
-        log.error("Mejl nije poslat", ex);
-
         ErrorResponseDto error = new ErrorResponseDto(
                 "ERR_INTERNAL_SERVER",
                 "Serverska greška",
@@ -35,8 +87,6 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-
-    // Neocekivane greske (500)
     /**
      * Obradjuje neocekivane izuzetke i vraca genericki odgovor za internu gresku.
      *
@@ -45,9 +95,6 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDto> handleUnexpectedException(Exception ex) {
-        // Logger + stacktrace
-        log.error("CRITICAL: Unexpected internal error occurred: ", ex);
-
         ErrorResponseDto error = new ErrorResponseDto(
                 "ERR_INTERNAL_SERVER",
                 "Serverska greška",
@@ -56,53 +103,41 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    // Očekivane greške - Unificirani hendler za raznu biznis logiku
     /**
      * Obradjuje poznate biznis izuzetke i mapira ih na odgovarajuci HTTP status.
      *
      * @param ex biznis izuzetak koji sadrzi domen-specifican kod greske
-     * @return odgovor sa detaljima biznis greske
+     * @return odgovor sa detaljima biznis greske i HTTP statusom iz {@link ErrorCode}
      */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponseDto> handleBusinessException(BusinessException ex) {
-        ErrorCode errorCode = ex.getErrorCode(); // Izvlacimo instancu error koda koja sadrzi sve sto je bitno o gresci za frontend
-
-        // Logujemo info, jer ovo nije pad sistema, već normalna biznis restrikcija
-        log.info("Business exception occurred: {} - {}", errorCode.getCode(), ex.getMessage());
-
+        ErrorCode errorCode = ex.getErrorCode();
         ErrorResponseDto error = new ErrorResponseDto(
                 errorCode.getCode(),
                 errorCode.getTitle(),
-                ex.getMessage() // Specifičan opis prosleđen iz servisa
+                ex.getMessage()
         );
         return new ResponseEntity<>(error, errorCode.getHttpStatus());
     }
 
-    // Očekivane greške - Validacija DTO objekata (400 Bad Request)
     /**
      * Obradjuje greske validacije DTO zahteva i vraca listu neispravnih polja.
      *
      * @param ex izuzetak nastao pri validaciji ulaznih podataka
-     * @return HTTP 400 odgovor sa mapom validacionih gresaka
+     * @return HTTP 400 odgovor sa mapom validacionih gresaka po poljima
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponseDto> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> validationErrors = new HashMap<>();
-        for (FieldError fieldError : ex.getBindingResult().getFieldErrors())
-        {
+        for (FieldError fieldError : ex.getBindingResult().getFieldErrors()) {
             validationErrors.put(fieldError.getField(), fieldError.getDefaultMessage());
         }
-
-        // Na primer. Ovi literali mogu biti i referenca ka nekom prevodu ako zelimo da podrzavamo vise jezika u app
-        // A ovaj "ERR_VALIDATION" moze biti enum koji cemo ili cuvati u scopeu ovog mikroservica, ili izdvojiti u globalnu listu kodova
-        // u neki dependency koji svi korist kao sto je securitylib
         ErrorResponseDto error = new ErrorResponseDto(
                 "ERR_VALIDATION",
                 "Neispravni podaci",
                 "Molimo Vas proverite unete podatke.",
                 validationErrors
         );
-
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 }

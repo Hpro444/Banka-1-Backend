@@ -1,5 +1,13 @@
 package com.banka1.userService.domain.enums;
 
+/**
+ * Enum koji predstavlja pol zaposlenog.
+ */
 public enum Pol {
-    M,Z
+
+    /** Muski pol. */
+    M,
+
+    /** Zenski pol. */
+    Z
 }

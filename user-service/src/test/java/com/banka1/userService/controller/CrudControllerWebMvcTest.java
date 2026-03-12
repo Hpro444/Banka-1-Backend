@@ -124,7 +124,7 @@ class CrudControllerWebMvcTest {
         doNothing().when(crudService).deleteEmployee(7L);
 
         mockMvc.perform(delete("/employees/7"))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isNoContent());
     }
 
     private EmployeeCreateRequestDto validCreateRequest() {

@@ -8,15 +8,25 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Konfiguracija OpenAPI (Swagger) specifikacije za user-service.
+ * Registruje JWT Bearer autentifikacionu shemu i metapodatke API-ja.
+ */
 @Configuration
 public class SwaggerConfig {
 
+    /** Naziv aplikacije koji se prikazuje u Swagger UI. */
     private static final String APP_TITLE = "User Service API";
+
+    /** Opis API-ja koji se prikazuje u Swagger UI. */
     private static final String APP_DESCRIPTION = "API for user and authentication management";
+
+    /** Verzija API-ja. */
     private static final String APP_VERSION = "1.0";
 
     /**
      * Konfigurise OpenAPI specifikaciju za servis i bearer autentikaciju.
+     * Dodaje JWT Bearer security shemu i osnovne informacije o API-ju.
      *
      * @return OpenAPI opis servisa
      */
@@ -34,4 +44,3 @@ public class SwaggerConfig {
                         .version(APP_VERSION));
     }
 }
-

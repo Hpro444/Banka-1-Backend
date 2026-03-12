@@ -11,11 +11,19 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Konfiguracione vrednosti aplikacije ucitane iz {@code application.yaml} pod prefiksom {@code employees}.
+ * Sadrzi mapu kojom se svakoj roli dodeljuje skup dozvoljenih permisija.
+ */
 @ConfigurationProperties(prefix = "employees")
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
 public class AppProperties {
-    private Map<Role, List<Permission>>permissions;
+
+    /**
+     * Mapa koja svakoj roli ({@link Role}) pridruzuje listu dozvoljenih permisija ({@link Permission}).
+     */
+    private Map<Role, List<Permission>> permissions;
 }

@@ -1,6 +1,5 @@
 package com.banka1.userService.mappers;
 
-
 import com.banka1.userService.domain.Zaposlen;
 import com.banka1.userService.domain.enums.Role;
 import com.banka1.userService.domain.service.ZaposlenService;
@@ -13,17 +12,23 @@ import com.banka1.userService.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+/**
+ * Mapper koji konvertuje DTO objekte u JPA entitete i obrnuto za entitet {@link Zaposlen}.
+ * Takodje delegira postavljanje permisija servisu {@link ZaposlenService}.
+ */
 @Component
 @RequiredArgsConstructor
 public class EmployeeMapper {
+
+    /** Servis koji postavlja skup permisija zaposlenog na osnovu njegove uloge. */
     private final ZaposlenService zaposlenService;
 
-    // DTO -> Entity
     /**
      * Mapira DTO za kreiranje zaposlenog u entitet.
+     * Nakon mapiranja, postavlja permisije u skladu sa dodeljenon ulogom.
      *
      * @param dto ulazni podaci za kreiranje
-     * @return novi entitet zaposlenog
+     * @return novi entitet zaposlenog sa popunjenim permisijama
      */
     public Zaposlen toEntity(EmployeeCreateRequestDto dto) {
         Zaposlen zaposlen = new Zaposlen();
@@ -42,9 +47,9 @@ public class EmployeeMapper {
         return zaposlen;
     }
 
-    // Entity -> DTO
     /**
-     * Mapira entitet zaposlenog u izlazni DTO.
+     * Mapira entitet zaposlenog u izlazni DTO za API odgovor.
+     * Ne ukljucuje osetljive podatke poput lozinke ili tokena.
      *
      * @param zaposlen entitet zaposlenog
      * @return DTO za API odgovor
@@ -63,12 +68,14 @@ public class EmployeeMapper {
         );
     }
 
-    // Update postojećeg Entiteta pomoću DTO-a
     /**
      * Azurira entitet zaposlenog administrativnim izmenama.
+     * Proverava da administrator ne moze da dodeli ulogu jacu od sopstvene.
      *
      * @param zaposlen entitet koji se menja
      * @param dto DTO sa novim vrednostima
+     * @param role uloga administratora koji vrsi izmenu
+     * @throws BusinessException ako DTO zahteva ulogu jacu od uloge administratora
      */
     public void updateEntityFromDto(Zaposlen zaposlen, EmployeeUpdateRequestDto dto, Role role) {
         if (dto.getIme() != null) zaposlen.setIme(dto.getIme());
@@ -79,14 +86,15 @@ public class EmployeeMapper {
         if (dto.getDepartman() != null) zaposlen.setDepartman(dto.getDepartman());
         if (dto.getAktivan() != null) zaposlen.setAktivan(dto.getAktivan());
         if (dto.getRole() != null) {
-            if(dto.getRole().getPower() > role.getPower())
-                throw new BusinessException(ErrorCode.NOT_STRONG_ROLE,"Ne mozes da mu das jacu rolu od svoje");
+            if (dto.getRole().getPower() > role.getPower())
+                throw new BusinessException(ErrorCode.NOT_STRONG_ROLE, "Ne mozes da mu das jacu rolu od svoje");
             zaposlen.setRole(dto.getRole());
         }
     }
 
     /**
      * Azurira entitet zaposlenog podacima koje korisnik moze samostalno da menja.
+     * Ne dozvoljava promenu uloge ni statusa aktivnosti.
      *
      * @param zaposlen entitet koji se menja
      * @param dto DTO sa novim vrednostima

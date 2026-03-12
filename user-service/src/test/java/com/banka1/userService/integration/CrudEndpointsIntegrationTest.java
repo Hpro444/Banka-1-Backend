@@ -119,7 +119,7 @@ class CrudEndpointsIntegrationTest {
                         .with(SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType(APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
+                .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.departman").value("IT"))
                 .andExpect(jsonPath("$.aktivan").value(false));
 
@@ -127,6 +127,44 @@ class CrudEndpointsIntegrationTest {
         assertThat(updated.getDepartman()).isEqualTo("IT");
         assertThat(updated.getPozicija()).isEqualTo("Senior Agent");
         assertThat(updated.isAktivan()).isFalse();
+    }
+
+    @Test
+    void softDeletedEmployeeDoesNotAppearInSearch() throws Exception {
+        Zaposlen emp = zaposlenRepository.save(employee("soft@banka.com", "softuser", Role.BASIC));
+        zaposlenRepository.delete(emp);
+
+        mockMvc.perform(get("/employees")
+                        .with(SecurityMockMvcRequestPostProcessors.jwt()
+                                .jwt(jwt -> jwt.claim("roles", "BASIC").claim("id", 100L))
+                                .authorities(new SimpleGrantedAuthority("ROLE_BASIC"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(0));
+    }
+
+    @Test
+    void createEmployeeWithDuplicateEmailReturns409() throws Exception {
+        zaposlenRepository.save(employee("dup@banka.com", "dup1", Role.BASIC));
+
+        EmployeeCreateRequestDto request = new EmployeeCreateRequestDto();
+        request.setIme("Dup");
+        request.setPrezime("Duplic");
+        request.setDatumRodjenja(LocalDate.of(1997, 7, 7));
+        request.setPol(Pol.M);
+        request.setEmail("dup@banka.com");
+        request.setUsername("dup2");
+        request.setPozicija("Agent");
+        request.setDepartman("Prodaja");
+        request.setRole(Role.BASIC);
+
+        mockMvc.perform(post("/employees")
+                        .with(SecurityMockMvcRequestPostProcessors.jwt()
+                                .jwt(jwt -> jwt.claim("roles", "ADMIN").claim("id", 999L))
+                                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict());
     }
 
     private Zaposlen employee(String email, String username, Role role) {

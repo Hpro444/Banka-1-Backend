@@ -10,6 +10,7 @@ import com.banka1.userService.dto.requests.ForgotPasswordDto;
 import com.banka1.userService.dto.requests.LoginRequestDto;
 import com.banka1.userService.dto.requests.RefreshTokenRequestDto;
 import com.banka1.userService.dto.responses.TokenResponseDto;
+import com.banka1.userService.exception.BusinessException;
 import com.banka1.userService.rabbitMQ.RabbitClient;
 import com.banka1.userService.repository.ConfirmationTokenRepository;
 import com.banka1.userService.repository.TokenRepository;
@@ -64,6 +65,9 @@ class AuthServiceImplementationTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(authService, "urlResetPassword", "http://localhost/reset?token=");
+        ReflectionTestUtils.setField(authService, "urlActivateAccount", "http://localhost/activate?token=");
+        ReflectionTestUtils.setField(authService, "refreshTokenExpiration", 1L);
+        ReflectionTestUtils.setField(authService, "confirmationTokenExpiration", 15L);
         TransactionSynchronizationManager.initSynchronization();
     }
 
@@ -102,8 +106,99 @@ class AuthServiceImplementationTest {
         when(tokenRepository.findByValue("hashed-refresh")).thenReturn(Optional.of(refreshToken));
 
         assertThatThrownBy(() -> authService.refreshToken(new RefreshTokenRequestDto("plain-refresh")))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessage("Pogresan token");
+    }
+
+    @Test
+    void loginThrowsForInvalidCredentials() {
+        Zaposlen employee = activeEmployee();
+        employee.setPassword("encoded-password");
+
+        when(zaposlenRepository.findByEmail("pera@banka.com")).thenReturn(Optional.of(employee));
+        when(passwordEncoder.matches("WrongPassword", "encoded-password")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.login(new LoginRequestDto("pera@banka.com", "WrongPassword")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Greska pri loginovanju");
+    }
+
+    @Test
+    void loginThrowsForInactiveUser() {
+        Zaposlen employee = activeEmployee();
+        employee.setAktivan(false);
+        employee.setPassword("encoded-password");
+
+        when(zaposlenRepository.findByEmail("pera@banka.com")).thenReturn(Optional.of(employee));
+        when(passwordEncoder.matches("Password12", "encoded-password")).thenReturn(true);
+
+        assertThatThrownBy(() -> authService.login(new LoginRequestDto("pera@banka.com", "Password12")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Korisnik nije aktivan");
+    }
+
+    @Test
+    void refreshTokenThrowsForDeletedUser() {
+        Zaposlen deleted = activeEmployee();
+        deleted.setDeleted(true);
+        RefreshToken refreshToken = new RefreshToken(deleted);
+        refreshToken.setExpirationDateTime(LocalDateTime.now().plusDays(1));
+
+        when(jwtService.sha256Hex("plain-refresh")).thenReturn("hashed-refresh");
+        when(tokenRepository.findByValue("hashed-refresh")).thenReturn(Optional.of(refreshToken));
+
+        assertThatThrownBy(() -> authService.refreshToken(new RefreshTokenRequestDto("plain-refresh")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Korisnik je obrisan");
+    }
+
+    @Test
+    void checkThrowsForExpiredToken() {
+        ConfirmationToken token = new ConfirmationToken();
+        token.setValue("hashed-token");
+        token.setExpirationDateTime(LocalDateTime.now().minusMinutes(1));
+        token.setZaposlen(activeEmployee());
+
+        String plainToken = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        when(jwtService.sha256Hex(plainToken)).thenReturn("hashed-token");
+        when(confirmationTokenRepository.findByValue("hashed-token")).thenReturn(Optional.of(token));
+
+        assertThatThrownBy(() -> authService.check(plainToken))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Pogresan token");
+    }
+
+    @Test
+    void editPasswordThrowsForInactiveUser() {
+        Zaposlen employee = activeEmployee();
+        employee.setAktivan(false);
+
+        ConfirmationToken confirmationToken = new ConfirmationToken();
+        confirmationToken.setId(7L);
+        confirmationToken.setValue("hashed-token");
+        confirmationToken.setZaposlen(employee);
+
+        ActivateDto request = new ActivateDto(7L, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "Password12");
+
+        when(confirmationTokenRepository.findById(7L)).thenReturn(Optional.of(confirmationToken));
+        when(jwtService.sha256Hex(request.getConfirmationToken())).thenReturn("hashed-token");
+
+        assertThatThrownBy(() -> authService.editPassword(request, false))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Korisnik nije aktivan");
+    }
+
+    @Test
+    void forgotPasswordThrowsForInactiveUser() {
+        Zaposlen employee = activeEmployee();
+        employee.setAktivan(false);
+
+        when(zaposlenRepository.findByEmail("pera@banka.com")).thenReturn(Optional.of(employee));
+
+        assertThatThrownBy(() -> authService.forgotPassword(new ForgotPasswordDto("pera@banka.com")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Korisnik nije aktivan");
+        verify(rabbitClient, never()).sendEmailNotification(any());
     }
 
     @Test

@@ -8,17 +8,17 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * DTO za zahtev za reset zaboravljene lozinke.
- * Sadrzi email adresu korisnika koji je zaboravio lozinku.
+ * DTO za zahtev ponovnog slanja aktivacionog mejla.
+ * Koristi se kada korisnik nije primio ili je izgubio originalni aktivacioni link.
  */
 @Getter
 @Setter
-@AllArgsConstructor
 @NoArgsConstructor
-public class ForgotPasswordDto {
+@AllArgsConstructor
+public class ResendActivationDto {
 
-    /** Email adresa korisnika cija se lozinka resetuje. */
-    @NotBlank(message = "Ne moze prazan string")
-    @Email(message = "Nije dobar format email-a")
+    /** Email adresa neaktiviranog korisnika kome se ponovo salje aktivacioni link. */
+    @Email
+    @NotBlank
     private String email;
 }

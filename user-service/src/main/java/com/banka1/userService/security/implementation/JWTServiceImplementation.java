@@ -8,9 +8,7 @@ import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import lombok.Getter;
-import lombok.Setter;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -21,58 +19,74 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
-import java.util.stream.Collectors;
 
+/**
+ * Implementacija {@link JWTService} koja koristi Nimbus JOSE biblioteku za potpisivanje
+ * JWT tokena algoritmom HS256 i {@link SecureRandom} za generisanje jednokratnih tokena.
+ */
 @Service
 @Getter
 public class JWTServiceImplementation implements JWTService {
 
+    /** Signer koji potpisuje JWT tokene HMAC-SHA256 algoritmom. */
     private final JWSSigner signer;
-    private final SecureRandom random=new SecureRandom();
+
+    /** Bezbedan izvor slucajnosti za generisanje jednokratnih tokena. */
+    private final SecureRandom random = new SecureRandom();
+
+    /** Bafer za generisanje nasumicnih bajtova (32 bajta = 256 bita entropije). */
     private final byte[] bytes = new byte[32];
+
+    /** Naziv claim-a u JWT-u koji nosi ime uloge korisnika. */
     @Value("${banka.security.roles-claim}")
     private String role;
+
+    /** Naziv claim-a u JWT-u koji nosi listu permisija korisnika. */
     @Value("${banka.security.permissions-claim}")
     private String permission;
+
+    /** Naziv claim-a u JWT-u koji nosi identifikator korisnika. */
     @Value("${banka.security.id}")
     private String id;
+
+    /** Issuer vrednost koja se upisuje u JWT token. */
     @Value("${banka.security.issuer}")
     private String issuer;
+
+    /** Vreme trajanja JWT tokena u milisekundama. */
     @Value("${banka.security.expiration-time}")
     private Long expirationTime;
 
     /**
-     * Inicijalizuje servis za potpisivanje JWT tokena.
+     * Inicijalizuje servis za potpisivanje JWT tokena ucitavanjem HMAC tajne.
      *
      * @param secret HMAC tajna za potpisivanje tokena
-     * @throws KeyLengthException ako je tajna neodgovarajuce duzine
+     * @throws KeyLengthException ako je tajna neodgovarajuce duzine za HS256
      */
     public JWTServiceImplementation(@Value("${jwt.secret}") String secret) throws KeyLengthException {
         this.signer = new MACSigner(secret);
     }
 
-
     /**
      * Generise JWT pristupni token za zadatog zaposlenog.
+     * Token sadrzi email (subject), identifikator, ulogu, permisije i vreme isteka.
      *
      * @param zaposlen zaposleni za kog se token izdaje
-     * @return serijalizovan JWT token
+     * @return serijalizovan potpisani JWT token
      */
     @Override
     public String generateJwtToken(Zaposlen zaposlen) {
-
-        List<String> permissions=new ArrayList<>();
-        for(Permission x:zaposlen.getPermissionSet())
-        {
+        List<String> permissions = new ArrayList<>();
+        for (Permission x : zaposlen.getPermissionSet()) {
             permissions.add(x.name());
         }
 
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
                 .subject(zaposlen.getEmail())
                 .issuer(issuer)
-                .claim(id,zaposlen.getId())
+                .claim(id, zaposlen.getId())
                 .claim(role, zaposlen.getRole().name())
-                .claim(permission,permissions)
+                .claim(permission, permissions)
                 .expirationTime(new Date(System.currentTimeMillis() + expirationTime))
                 .build();
 
@@ -80,9 +94,7 @@ public class JWTServiceImplementation implements JWTService {
         SignedJWT jwt = new SignedJWT(header, claims);
         try {
             jwt.sign(signer);
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             throw new IllegalStateException("Greska sa generisanjem JWT-a");
         }
         return jwt.serialize();
@@ -106,12 +118,12 @@ public class JWTServiceImplementation implements JWTService {
     }
 
     /**
-     * Pretvara niz bajtova u heksadecimalni zapis.
+     * Pretvara niz bajtova u heksadecimalni string.
      *
      * @param bytes niz bajtova za konverziju
-     * @return string u hex formatu
+     * @return string u lowercase hex formatu
      */
-    private  String toHex(byte[] bytes) {
+    private String toHex(byte[] bytes) {
         StringBuilder sb = new StringBuilder(bytes.length * 2);
         for (byte b : bytes) {
             sb.append(String.format("%02x", b));
@@ -120,9 +132,10 @@ public class JWTServiceImplementation implements JWTService {
     }
 
     /**
-     * Generise nasumican token bez padding-a, pogodan za URL upotrebu.
+     * Generise nasumican URL-safe Base64 token bez padding-a.
+     * Koristi 32 nasumicna bajta (256 bita entropije) sto rezultuje tokenom duzine 43 znaka.
      *
-     * @return URL-safe nasumicni token
+     * @return URL-safe nasumicni token pogodan za slanje u linkovima
      */
     @Override
     public String generateRandomToken() {

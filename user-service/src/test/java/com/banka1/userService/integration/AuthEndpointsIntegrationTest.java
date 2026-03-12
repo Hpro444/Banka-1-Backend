@@ -77,7 +77,6 @@ class AuthEndpointsIntegrationTest {
         LoginRequestDto request = new LoginRequestDto("pera@banka.com", "Password12");
 
         mockMvc.perform(post("/auth/login")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType(APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -101,7 +100,6 @@ class AuthEndpointsIntegrationTest {
         RefreshTokenRequestDto request = new RefreshTokenRequestDto(rawRefreshToken);
 
         String rotatedToken = mockMvc.perform(post("/auth/refresh")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType(APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -113,6 +111,35 @@ class AuthEndpointsIntegrationTest {
 
         assertThat(rotatedToken).doesNotContain(rawRefreshToken);
         assertThat(tokenRepository.findAll()).hasSize(1);
+    }
+
+    @Test
+    void loginReturnsUnauthorizedForWrongPassword() throws Exception {
+        Zaposlen employee = activeEmployee("wrong@banka.com", "wrongpw", Role.AGENT);
+        employee.setPassword(passwordEncoder.encode("RealPassword12"));
+        zaposlenRepository.save(employee);
+
+        LoginRequestDto request = new LoginRequestDto("wrong@banka.com", "WrongPassword12");
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void loginReturnsForbiddenForInactiveUser() throws Exception {
+        Zaposlen employee = activeEmployee("inactive@banka.com", "inactiveuser", Role.AGENT);
+        employee.setAktivan(false);
+        employee.setPassword(passwordEncoder.encode("Password12"));
+        zaposlenRepository.save(employee);
+
+        LoginRequestDto request = new LoginRequestDto("inactive@banka.com", "Password12");
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
     }
 
     private Zaposlen activeEmployee(String email, String username, Role role) {

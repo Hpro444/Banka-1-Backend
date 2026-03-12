@@ -19,10 +19,8 @@ import com.banka1.userService.security.JWTService;
 import com.banka1.userService.service.CrudService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,35 +28,48 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.Period;
-import java.util.List;
-import java.util.stream.Collectors;
 
+/**
+ * Implementacija {@link CrudService} koja upravlja CRUD operacijama nad entitetom zaposlenog.
+ * Kreiranje zaposlenog generise aktivacioni token i salje email asinhorno putem RabbitMQ-a.
+ * Sve pretrage koriste LIKE escapovanje radi zastite od SQL injection putem metakaraktera.
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class CrudServiceImplementation implements CrudService {
 
-
+    /** Repozitorijum za pristup entitetima zaposlenih. */
     private final ZaposlenRepository zaposlenRepository;
+
+    /** Servis za generisanje jednokratnih tokena. */
     private final JWTService jwtService;
+
+    /** Repozitorijum za pristup confirmation tokenima. */
     private final ConfirmationTokenRepository confirmationTokenRepository;
+
+    /** Klijent za slanje email notifikacija putem RabbitMQ-a. */
     private final RabbitClient rabbitClient;
+
+    /** Mapper za konverziju izmedju DTO i JPA entiteta zaposlenog. */
     private final EmployeeMapper employeeMapper;
 
+    /** Naziv JWT claim-a koji nosi naziv uloge korisnika. */
     @Value("${banka.security.roles-claim}")
     private String role;
 
+    /** Bazni URL za aktivaciju naloga (token se dodaje kao query parametar). */
     @Value("${url.activate-account}")
     private String activateAccount;
 
-
     /**
      * Kreira novog zaposlenog i salje aktivacioni mejl nakon uspesnog commita transakcije.
+     * Proverava jedinstvenost email-a i korisnickog imena, kao i punoletnost.
      *
      * @param dto podaci za kreiranje zaposlenog
      * @return kreirani zaposleni mapiran u odgovor
+     * @throws BusinessException ako email ili korisnicko ime vec postoje, ili je korisnik maloletan
      */
     @Override
     public EmployeeResponseDto createEmployee(EmployeeCreateRequestDto dto) {
@@ -68,18 +79,14 @@ public class CrudServiceImplementation implements CrudService {
         if (zaposlenRepository.existsByUsername(dto.getUsername()))
             throw new BusinessException(ErrorCode.USERNAME_ALREADY_EXISTS, "Username: " + dto.getUsername());
 
+        if (Period.between(dto.getDatumRodjenja(), LocalDate.now()).getYears() < 18)
+            throw new BusinessException(ErrorCode.USER_TOO_YOUNG, "Korisnik mora biti punoletan");
 
-        if(Period.between(dto.getDatumRodjenja(),LocalDate.now()).getYears()<18)
-            throw new BusinessException(ErrorCode.USER_TOO_YOUNG,"Korisnik mora biti punoletan");
-
-
-        // Mapiranje DTO u Entitet
         Zaposlen zaposlen = employeeMapper.toEntity(dto);
-
         Zaposlen savedEmployee = zaposlenRepository.save(zaposlen);
 
-        String generated= jwtService.generateRandomToken();
-        ConfirmationToken confirmationToken=new ConfirmationToken(jwtService.sha256Hex(generated),savedEmployee);
+        String generated = jwtService.generateRandomToken();
+        ConfirmationToken confirmationToken = new ConfirmationToken(jwtService.sha256Hex(generated), savedEmployee);
         confirmationTokenRepository.save(confirmationToken);
         savedEmployee.setConfirmationToken(confirmationToken);
 
@@ -87,7 +94,7 @@ public class CrudServiceImplementation implements CrudService {
                 zaposlen.getIme(),
                 zaposlen.getEmail(),
                 EmailType.ACTIVATION,
-                activateAccount+generated);
+                activateAccount + generated);
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
@@ -101,6 +108,7 @@ public class CrudServiceImplementation implements CrudService {
 
     /**
      * Pretrazuje zaposlene po pojedinacnim filterima uz paginaciju.
+     * Vrednost {@code null} se tretira kao wildcard (prazan string); LIKE metakarakteri se eskejpuju.
      *
      * @param ime filter po imenu
      * @param prezime filter po prezimenu
@@ -120,73 +128,71 @@ public class CrudServiceImplementation implements CrudService {
             String pozicija,
             Pageable pageable
     ) {
+        String safeIme = (ime != null) ? escapeLike(ime) : "";
+        String safePrezime = (prezime != null) ? escapeLike(prezime) : "";
+        String safeEmail = (email != null) ? escapeLike(email) : "";
+        String safePozicija = (pozicija != null) ? escapeLike(pozicija) : "";
+        String safeDepartman = (departman != null) ? escapeLike(departman) : "";
 
-        // Ako je filter null, šaljemo prazan string koji se u bazi prevodi u LIKE '%%' (pronalazi sve)
-        String safeIme = (ime != null) ? ime : "";
-        String safePrezime = (prezime != null) ? prezime : "";
-        String safeEmail = (email != null) ? email : "";
-        String safePozicija = (pozicija != null) ? pozicija : "";
-        String safeDepartman = (departman != null) ? departman : "";
-
-        Page<Zaposlen> employeesPage = zaposlenRepository.searchEmployees(safeIme , safePrezime, safeEmail, safePozicija, safeDepartman, pageable);
-
+        Page<Zaposlen> employeesPage = zaposlenRepository.searchEmployees(safeIme, safePrezime, safeEmail, safePozicija, safeDepartman, pageable);
         return employeesPage.map(employeeMapper::toDto);
     }
 
     /**
-     * Azurira zaposlenog i proverava da li korisnik ima dovoljno jaku rolu za izmenu.
+     * Azurira zaposlenog i proverava da li korisnik ima dovoljno jaku ulogu za izmenu.
+     * Ako se nalog deaktivira, salje notifikacioni email asinhorno putem RabbitMQ-a.
      *
      * @param jwt JWT korisnika koji vrsi izmenu
      * @param id identifikator zaposlenog
      * @param dto podaci za azuriranje
      * @return azurirani zaposleni
+     * @throws BusinessException ako zaposleni nije nadjen ili pozivalac nema dovoljno jaku ulogu
      */
     @Override
     public EmployeeResponseDto updateEmployee(Jwt jwt, Long id, EmployeeUpdateRequestDto dto) {
         Zaposlen zaposlen = zaposlenRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, "ID: " + id));
 
-        Role role1=Role.valueOf((String) jwt.getClaims().get(role));
-        if(role1.getPower()<=zaposlen.getRole().getPower())
-            throw new BusinessException(ErrorCode.NOT_STRONG_ROLE,"Slab si");
+        Role role1 = Role.valueOf((String) jwt.getClaims().get(role));
+        if (role1.getPower() <= zaposlen.getRole().getPower())
+            throw new BusinessException(ErrorCode.NOT_STRONG_ROLE, "Slab si");
 
-        // Prepustamo Mapperu da odradi spajanje novih podataka
-        employeeMapper.updateEntityFromDto(zaposlen, dto,role1);
-
+        employeeMapper.updateEntityFromDto(zaposlen, dto, role1);
         Zaposlen updated = zaposlenRepository.save(zaposlen);
 
         Boolean aktivan = dto.getAktivan();
-
-        if(aktivan != null && !aktivan) {
+        if (aktivan != null && !aktivan) {
             EmailDto emailDto = new EmailDto(
                     zaposlen.getIme(),
                     zaposlen.getEmail(),
                     EmailType.ACCOUNT_DEACTIVATION
             );
-
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                        rabbitClient.sendEmailNotification(emailDto);
+                    rabbitClient.sendEmailNotification(emailDto);
                 }
             });
         }
-
 
         return employeeMapper.toDto(updated);
     }
 
     /**
      * Menja podatke trenutno prijavljenog korisnika.
+     * Identifikator korisnika se izvlaci iz JWT claim-a {@code id}.
      *
      * @param jwt JWT prijavljenog korisnika
      * @param dto podaci za izmenu profila
      * @return azurirani korisnik
+     * @throws BusinessException ako JWT ne sadrzi claim {@code id} ili korisnik nije nadjen
      */
     @Override
     public EmployeeResponseDto editEmployee(Jwt jwt, EmployeeEditRequestDto dto) {
-        Long id=((Number)jwt.getClaim("id")).longValue();
-        Zaposlen zaposlen=zaposlenRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, "ID: " + id));
+        Object idClaim = jwt.getClaim("id");
+        if (idClaim == null) throw new BusinessException(ErrorCode.INVALID_TOKEN, "JWT ne sadrži id claim");
+        Long id = ((Number) idClaim).longValue();
+        Zaposlen zaposlen = zaposlenRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, "ID: " + id));
         employeeMapper.updateEntityFromDto(zaposlen, dto);
         return employeeMapper.toDto(zaposlenRepository.save(zaposlen));
     }
@@ -195,16 +201,13 @@ public class CrudServiceImplementation implements CrudService {
      * Soft-brise zaposlenog i salje notifikaciju o deaktivaciji naloga.
      *
      * @param id identifikator zaposlenog koji se brise
+     * @throws BusinessException ako zaposleni nije nadjen
      */
     @Override
     public void deleteEmployee(Long id) {
-        // Zahvaljujući @SQLRestriction("deleted = false"), findById će vratiti prazan Optional
-        // ako je korisnik već soft-obrisan!
         Zaposlen zaposlen = zaposlenRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, "ID: " + id));
 
-        // Kada pozovemo delete, Hibernate presreće komandu i umesto DELETE FROM employees
-        // izvršava naš UPDATE employees SET deleted = true WHERE id = ?
         zaposlenRepository.delete(zaposlen);
 
         EmailDto emailDto = new EmailDto(
@@ -220,8 +223,10 @@ public class CrudServiceImplementation implements CrudService {
             }
         });
     }
+
     /**
      * Vrsi globalnu pretragu zaposlenih preko jedinstvenog tekstualnog upita.
+     * Upit se poredi sa imenom, prezimenom, emailom, departmanom i pozicijom.
      *
      * @param query tekstualni upit za pretragu
      * @param pageable parametri paginacije
@@ -229,14 +234,19 @@ public class CrudServiceImplementation implements CrudService {
      */
     @Transactional(readOnly = true)
     public Page<EmployeeResponseDto> globalSearchEmployees(String query, Pageable pageable) {
-
-        // Rešavanje PostgreSQL baga: ako je query null, stavljamo prazan string ("%%" pronalazi sve)
-        String safeQuery = (query != null) ? query : "";
-
-        // Repo poziv
+        String safeQuery = (query != null) ? escapeLike(query) : "";
         Page<Zaposlen> employeesPage = zaposlenRepository.globalSearchEmployees(safeQuery, pageable);
-
-        // Zadržavamo paginaciju i mapiramo u DTO
         return employeesPage.map(employeeMapper::toDto);
+    }
+
+    /**
+     * Eskejpuje SQL LIKE metakaraktere u pretrazi radi sprecavanja neocekivanih widcard podudaranja.
+     * Zamenjuje {@code \} sa {@code \\}, {@code %} sa {@code \%} i {@code _} sa {@code \_}.
+     *
+     * @param s ulazni string koji se eskejpuje
+     * @return eskejpovan string bezbedan za upotrebu u LIKE klauzuli
+     */
+    private String escapeLike(String s) {
+        return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 }
