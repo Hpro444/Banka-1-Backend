@@ -62,9 +62,9 @@ public abstract class Account extends BaseEntity{
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private Status status=Status.ACTIVE;
-    @Column(nullable = false)
+//    @Column(nullable = false)
     private BigDecimal dnevniLimit;
-    @Column(nullable = false)
+//    @Column(nullable = false)
     private BigDecimal mesecniLimit;
     @Column(nullable = false)
     private BigDecimal dnevnaPotrosnja=BigDecimal.ZERO;

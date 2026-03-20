@@ -45,7 +45,7 @@ public class EmployeeServiceImplementation implements EmployeeService {
     public EmployeeServiceImplementation(@Value("${my.random.seed}") Long seed, ClientService clientService, CurrencyRepository currencyRepository, SifraDelatnostiRepository sifraDelatnostiRepository, CompanyRepository companyRepository, AccountRepository accountRepository)
     {
         this.clientService = clientService;
-        this.random=new Random(seed);
+        this.random=new Random();
         this.currencyRepository=currencyRepository;
         this.sifraDelatnostiRepository=sifraDelatnostiRepository;
         this.companyRepository=companyRepository;

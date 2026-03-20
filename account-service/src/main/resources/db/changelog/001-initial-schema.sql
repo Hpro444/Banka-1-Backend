@@ -80,8 +80,8 @@ CREATE TABLE account_table (
                                currency_id BIGINT NOT NULL,
                                status VARCHAR(20) NOT NULL,
 
-                               dnevni_limit DECIMAL(19,2) NOT NULL,
-                               mesecni_limit DECIMAL(19,2) NOT NULL,
+                               dnevni_limit DECIMAL(19,2),
+                               mesecni_limit DECIMAL(19,2),
                                dnevna_potrosnja DECIMAL(19,2) NOT NULL,
                                mesecna_potrosnja DECIMAL(19,2) NOT NULL,
 
