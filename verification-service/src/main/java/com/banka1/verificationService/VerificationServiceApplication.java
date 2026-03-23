@@ -11,12 +11,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class VerificationServiceApplication {
 
-	/**
-	 * Pokretanje Spring Boot aplikacije.
-	 *
-	 * @param args argumenti komandne linije
-	 */
-	public static void main(String[] args) {
-		SpringApplication.run(VerificationServiceApplication.class, args);
-	}
+    /**
+     * Pokretanje Spring Boot aplikacije.
+     *
+     * @param args argumenti komandne linije
+     */
+    public static void main(String[] args) {
+        SpringApplication.run(VerificationServiceApplication.class, args);
+    }
 }

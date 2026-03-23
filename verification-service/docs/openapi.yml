@@ -1,0 +1,18 @@
+openapi: 3.1.0
+info:
+  title: Verification Service API Documentation
+  description: |
+    Verification flow:
+    1. Client requests verification for sensitive operations (payments, transfers, etc.).
+    2. Service generates a 6-digit code, hashes it, and saves the session to database.
+    3. Publishes event to notification-service via RabbitMQ to send code to client.
+    4. Client submits the code for validation.
+    5. Service validates code, checks expiration and attempts, updates session status.
+    6. Returns validation result; after 3 failed attempts, session is cancelled.
+  version: "1.0"
+servers:
+- url: http://localhost:8086
+  description: Generated server url
+paths: {}
+components:
+  schemas: {}
