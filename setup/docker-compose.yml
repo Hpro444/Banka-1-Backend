@@ -91,6 +91,28 @@ services:
       timeout: 5s
       retries: 10
 
+  postgres_transfer:
+    image: postgres:16
+    container_name: postgres_transfer_db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${TRANSFER_DB_NAME:-transferdb}
+      POSTGRES_USER: ${TRANSFER_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${TRANSFER_DB_PASSWORD:-postgres}
+    ports:
+      - "${TRANSFER_DB_EX_PORT:-5437}:5432"
+    volumes:
+      - postgres-transfer-data:/var/lib/postgresql/data
+    networks:
+      - banka-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TRANSFER_DB_USER:-postgres} -d ${TRANSFER_DB_NAME:-transferdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   # RabbitMQ (shared)
   rabbitmq:
     image: rabbitmq:3-management
@@ -355,6 +377,58 @@ services:
       retries: 10
       start_period: 30s
 
+  transfer-service:
+    build:
+      context: ..
+      dockerfile: transfer-service/Dockerfile
+      args:
+        SERVER_PORT: ${TRANSFER_SERVICE_PORT:-8085}
+    container_name: banka_transfer_service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_HOST: postgres_transfer
+      DB_PORT: 5432
+      DB_NAME: ${TRANSFER_DB_NAME:-transferdb}
+      DB_USER: ${TRANSFER_DB_USER:-postgres}
+      DB_PASSWORD: ${TRANSFER_DB_PASSWORD:-postgres}
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      SERVER_PORT: ${TRANSFER_SERVICE_PORT:-8085}
+      JWT_SECRET: ${JWT_SECRET}
+
+      CLIENT_SERVICE_URL: http://client-service:${CLIENT_SERVER_PORT:-8083}
+      ACCOUNT_SERVICE_URL: http://account-service:${ACCOUNT_SERVER_PORT:-8084}
+      EXCHANGE_SERVICE_URL: http://exchange-service:${EXCHANGE_SERVER_PORT:-8082}
+      VERIFICATION_SERVICE_URL: http://verification-service:${VERIFICATION_SERVER_PORT:-8080}
+
+      MANAGEMENT_OTLP_METRICS_EXPORT_URL: http://otel-collector:4318/v1/metrics
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      OTEL_SERVICE_NAME: transferService
+    depends_on:
+      postgres_transfer:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    expose:
+      - "${TRANSFER_SERVICE_PORT:-8085}"
+    networks:
+      - banka-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${TRANSFER_SERVICE_PORT:-8085}/actuator/health/liveness || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   api-gateway:
     build:
       context: ..
@@ -369,6 +443,7 @@ services:
       SERVER_PORT: ${USER_SERVER_PORT:-8081}
       CLIENT_SERVICE_PORT: ${CLIENT_SERVER_PORT:-8083}
       ACCOUNT_SERVICE_PORT: ${ACCOUNT_SERVER_PORT:-8084}
+      TRANSFER_SERVICE_PORT: ${TRANSFER_SERVICE_PORT:-8085}
     depends_on:
       employee-service:
         condition: service_healthy
@@ -394,4 +469,5 @@ volumes:
   postgres-user-data:
   postgres-client-data:
   postgres-account-data:
+  postgres-transfer-data:
   grafana-data:
