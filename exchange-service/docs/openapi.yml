@@ -49,7 +49,7 @@ paths:
         - Exchange Rates
       summary: Fetch and store daily exchange rates
       operationId: fetchDailyExchangeRates
-      description: Fetches the fixed supported currency set EUR, CHF, USD, GBP, JPY, CAD and AUD against RSD from Twelve Data. The provider market rate is converted into bank `buyingRate` and `sellingRate` using the configured margin percentage. If the external API fails, the service stores a copy of the previous local snapshot for the new day.
+      description: Fetches the fixed supported currency set EUR, CHF, USD, GBP, JPY, CAD and AUD against RSD from Twelve Data. The provider market rate is converted into bank `buyingRate` and `sellingRate` using the configured margin percentage. If the external API fails, the service falls back to the latest available local snapshot and reports that fallback in the response payload.
       responses:
         '200':
           description: Rates fetched and stored successfully
@@ -222,6 +222,8 @@ components:
       required:
         - fetchedCount
         - rates
+        - fallbackUsed
+        - sourceSnapshotDate
       properties:
         fetchedCount:
           type: integer
@@ -230,6 +232,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ExchangeRate'
+        fallbackUsed:
+          type: boolean
+          example: false
+        sourceSnapshotDate:
+          type: string
+          format: date
+          example: 2026-03-22
     ConversionResponse:
       type: object
       required:

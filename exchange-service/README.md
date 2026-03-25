@@ -20,7 +20,7 @@ Servis koristi:
 - `ExchangeRateEntity` i JPA repozitorijum za lokalni storage
 - integracija sa Twelve Data providerom
 - automatski dnevni cron fetch u `08:00`
-- fallback na prethodni lokalni snapshot ako eksterni API padne
+- fallback na poslednji raspolozivi lokalni snapshot ako eksterni API padne
 - endpointi za listu kurseva i pojedinacni kurs
 - endpoint za kalkulaciju konverzije
 - provizija kao konfigurabilan procenat
@@ -48,21 +48,21 @@ Osnovna pravila servisa:
 - svi obracuni idu kroz `RSD`
 - dnevni kursevi se cuvaju lokalno
 - banka cuva i `buyingRate` i `sellingRate`
-- za klijentsku kalkulaciju koristi se `sellingRate` ne-RSD valute
-- ako eksterni fetch ne uspe, koristi se prethodni dnevni snapshot
+- za klijentsku kalkulaciju koristi se `buyingRate` izvorne ne-RSD valute kada se ulazi u `RSD`, a `sellingRate` ciljne ne-RSD valute kada se izlazi iz `RSD`
+- ako eksterni fetch ne uspe, koristi se poslednji raspolozivi lokalni snapshot
 
 Pravila kalkulacije:
 
 - ista valuta: vraca se isti iznos
 - `RSD -> strana valuta`: deli se sa `sellingRate` ciljne valute
-- `strana valuta -> RSD`: mnozi se sa `sellingRate` izvorne valute
+- `strana valuta -> RSD`: mnozi se sa `buyingRate` izvorne valute
 - `strana valuta -> strana valuta`: prvo `from -> RSD`, zatim `RSD -> to`
 
 Primer:
 
 ```text
 EUR -> USD
-100 EUR * EUR.sellingRate = amountInRsd
+100 EUR * EUR.buyingRate = amountInRsd
 amountInRsd / USD.sellingRate = finalUsdAmount
 ```
 
@@ -151,6 +151,12 @@ Napomena:
 Rucno pokrece fetch dnevnih kurseva za sve podrzane strane valute i cuva ih lokalno.
 
 Koristi istu logiku kao scheduler.
+Endpoint je zasticen i namenjen admin korisnicima.
+
+Endpoint vraca i informaciju da li je koriscen fallback:
+
+- `fallbackUsed`
+- `sourceSnapshotDate`
 
 ### `GET /rates`
 
@@ -240,6 +246,8 @@ EXCHANGE_DB_PASSWORD=postgres
 JWT_SECRET=local_exchange_dev_secret_at_least_32_chars
 TWELVE_DATA_API_KEY=replace_with_provider_api_key
 ```
+
+`EXCHANGE_DB_EX_PORT` koristi `docker compose` za host mapiranje PostgreSQL porta. Sama aplikacija koristi `EXCHANGE_DB_PORT`.
 
 Najbitniji property-ji:
 
@@ -406,11 +414,12 @@ Testovima su pokriveni:
 
 ## Swagger i OpenAPI
 
-- Swagger UI: `/swagger-ui.html`
-- Raw OpenAPI: `/v3/api-docs`
+- Swagger UI direktno na servisu: `/swagger-ui.html`
+- Raw OpenAPI direktno na servisu: `/v3/api-docs`
 - Staticki contract: `docs/openapi.yml`
 
-Ako pristupas preko gateway-ja, Swagger konfiguracija koristi `/api/exchange` prefiks.
+Ako pristupas preko gateway-ja, servisne rute imaju prefiks koji gateway doda, na primer `/api/exchange/rates`.
+Swagger UI konfiguracija u samom servisu vise ne hardcoduje gateway prefiks, tako da lokalni direct-service pristup ostaje ispravan.
 
 ## Ceste nedoumice
 
@@ -445,5 +454,5 @@ docker compose up -d postgres
 
 - `ExchangeRateEntity` se nalazi u `domain` paketu, u skladu sa konvencijom ostatka repoa
 - scheduler i rucni fetch endpoint koriste istu servisnu metodu `fetchAndStoreDailyRates()`
-- ako startup fetch ne uspe i nema prethodnog snapshot-a, servis ce prijaviti odgovarajucu gresku
+- ako startup fetch ne uspe i nema nijednog lokalnog snapshot-a za fallback, servis ce prijaviti odgovarajucu gresku
 - provider payload validacija je stroga, ukljucujuci `timestamp` i decimalna polja
