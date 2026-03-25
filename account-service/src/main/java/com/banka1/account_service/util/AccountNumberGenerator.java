@@ -5,22 +5,30 @@ import com.banka1.account_service.repository.AccountRepository;
 import java.util.Random;
 
 /**
- * Utility class for generating and validating 18-digit bank account numbers.
- *
- * Structure:
- *   Positions 1–3   : Bank code (hardcoded 111)
- *   Positions 4–7   : Branch code (hardcoded 0001)
- *   Positions 8–16  : 9 random digits
- *   Positions 17–17 : Account type code (1–2 chars from subtype)
- *   Position  18    : Check digit (modulo 11)
+ * Utility klasa za generisanje i validaciju 18-cifrenih bankovskih brojeva racuna.
+ * <p>
+ * <strong>Struktura broja racuna:</strong>
+ * <pre>
+ *   Pozicije 1–3    : Kod banke (fiksno: 111)
+ *   Pozicije 4–7    : Kod fijale (fiksno: 0001)
+ *   Pozicije 8–16   : 9 nasumicnih cifara
+ *   Pozicije 17–18  : Kod tipa racuna (2 cifre, npr. 11 za licni tekuci, 21 za poslovni)
+ *   Pozicija  19    : Kontrolna cifra (modulo 11 algoritam)
+ * </pre>
+ * <p>
+ * Ova klasa je immutable i ne sadrzi stanje.
  */
 public final class AccountNumberGenerator {
 
     private AccountNumberGenerator() {}
 
     /**
-     * Calculates the check digit for an account number prefix using modulo 11.
-     * Returns a value 0–9 (returns 10 if the result is 10, which is invalid — caller must retry).
+     * Izracunava kontrolnu cifru za prefix broja racuna koristeći modulo 11 algoritam.
+     * <p>
+     * Vraća vrednost 0–9. Ako je rezultat 10, to je nevažeći (pozivajući kod mora ponovo pokušati).
+     *
+     * @param prefix prvo 17 cifara broja racuna
+     * @return kontrolna cifra (0–9) ili 10 ako je nevažeća (zahteva retry)
      */
     public static int calculateCheckDigit(String prefix) {
         int sum = 0;
@@ -31,10 +39,17 @@ public final class AccountNumberGenerator {
     }
 
     /**
-     * Validates a full 18-digit account number by verifying its check digit.
+     * Validira 18-cifreni broj racuna proveravanjem kontrolne cifre i formata.
+     * <p>
+     * Broj mora:
+     * <ul>
+     *   <li>Sadrzavati tacno 18 cifara</li>
+     *   <li>Sadrzavati samo numeričke znakove</li>
+     *   <li>Imati ispravnu kontrolnu cifru (nije 10)</li>
+     * </ul>
      *
-     * @param number the account number string
-     * @return true if the number is valid (18 digits, correct check digit), false otherwise
+     * @param number broj racuna za validaciju
+     * @return {@code true} ako je broj validan, {@code false} inače
      */
     public static boolean validateAccountNumber(String number) {
         if (number == null || number.length() != 18) return false;
@@ -48,13 +63,22 @@ public final class AccountNumberGenerator {
     }
 
     /**
-     * Generates a unique 18-digit account number.
-     * Retries on collision or when check digit would be 10.
+     * Generiše jedinstveni 18-cifreni broj racuna.
+     * <p>
+     * Proces:
+     * <ol>
+     *   <li>Genera se random deo od 9 cifara</li>
+     *   <li>Gradi se broj sa fiksnim kodom banke (111), fijale (0001), random delom i tipom racuna</li>
+     *   <li>Izracuna se kontrolna cifra</li>
+     *   <li>Ako kontrolna cifra bude 10, proces se ponavlja</li>
+     *   <li>Ako broj vec postoji u bazi, proces se ponavlja</li>
+     *   <li>Kada je broj validan i jedinstven, vraća se</li>
+     * </ol>
      *
-     * @param typeVal           the account type code string (e.g. "11", "21")
-     * @param random            Random instance to use
-     * @param accountRepository used to check uniqueness in the DB
-     * @return a unique, valid 18-digit account number
+     * @param typeVal kod tipa racuna kao string (npr. "11" za licni tekuci, "21" za poslovni)
+     * @param random instanca {@link Random} klase za generisanje nasumičnih cifara
+     * @param accountRepository repository za proveru jedinstvnosti broja u bazi
+     * @return jedinstveni, validan 18-cifreni broj racuna
      */
     public static String generate(String typeVal, Random random, AccountRepository accountRepository) {
         StringBuilder sb = new StringBuilder();
