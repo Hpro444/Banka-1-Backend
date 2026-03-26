@@ -1,14 +1,19 @@
 package com.banka1.transaction_service.rest_client;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 @Service
-@RequiredArgsConstructor
 public class ClientService {
 
+
     private final RestClient restClient;
+
+    public ClientService(@Qualifier("userClient") RestClient restClient) {
+        this.restClient = restClient;
+    }
 
 //    public ClientInfoResponseDto getUser(String jmbg) {
 //        return clientServiceClient.get()

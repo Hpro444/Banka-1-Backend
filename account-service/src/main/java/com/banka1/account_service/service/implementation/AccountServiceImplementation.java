@@ -69,6 +69,8 @@ public class AccountServiceImplementation implements AccountService {
         Account to=validate(paymentDto.getToAccountNumber());
         Account bankSender=validateBank(from);
         Account bankTarget=validateBank(to);
+        if(paymentDto.getClientId()==null)
+            throw new IllegalArgumentException("Unesi id clienta");
         if(from.getVlasnik().equals(to.getVlasnik()))
             throw new IllegalArgumentException("Tranzakcija se ne moze odvijati za racune istog vlasnike");
         return execute(paymentDto, from, to, bankSender, bankTarget);

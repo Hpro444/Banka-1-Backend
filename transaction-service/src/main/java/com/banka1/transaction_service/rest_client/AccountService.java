@@ -1,0 +1,37 @@
+package com.banka1.transaction_service.rest_client;
+
+import com.banka1.transaction_service.dto.request.PaymentDto;
+import com.banka1.transaction_service.dto.response.InfoResponseDto;
+import com.banka1.transaction_service.dto.response.UpdatedBalanceResponseDto;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+
+@Service
+public class AccountService {
+
+    private final RestClient restClient;
+
+    public AccountService(@Qualifier("accountClient") RestClient restClient) {
+        this.restClient = restClient;
+    }
+
+    public InfoResponseDto getInfo(String fromBankNumber, String toBankNumber) {
+        return restClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/info")
+                        .queryParam("fromBankNumber", fromBankNumber)
+                        .queryParam("toBankNumber", toBankNumber)
+                        .build())
+                .retrieve()
+                .body(InfoResponseDto.class);
+    }
+
+    public UpdatedBalanceResponseDto transfer(PaymentDto paymentDto) {
+        return restClient.post()
+                .uri("/transfer")
+                .body(paymentDto)
+                .retrieve()
+                .body(UpdatedBalanceResponseDto.class);
+    }
+}

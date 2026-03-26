@@ -1,4 +1,4 @@
-package com.banka1.account_service.dto.request;
+package com.banka1.transaction_service.dto.request;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -19,7 +19,7 @@ import java.math.BigDecimal;
  * <p>
  * Validacija:
  * <ul>
- *   <li>Oba broja računa moraju biti 18-cifreni</li>
+ *   <li>Oba broja računa moraju biti 19-cifreni</li>
  *   <li>Iznosi (fromAmount i toAmount) moraju biti pozitivni</li>
  *   <li>Komisija mora biti >= 0</li>
  * </ul>
@@ -32,15 +32,13 @@ public class PaymentDto {
     /**
      * Broj računa sa kojeg se novac prenosi (19 cifara).
      */
-    @NotBlank(message = "Unesi racun posiljaoca")
-    @Pattern(regexp = "^\\d{19}$", message = "Broj racuna mora imati 19 cifara")
+
     private String fromAccountNumber;
 
     /**
      * Broj računa na koji se novac prenosi (19 cifara).
      */
-    @NotBlank(message = "Unesi racun primaoca")
-    @Pattern(regexp = "^\\d{19}$", message = "Broj racuna mora imati 19 cifara")
+
     private String toAccountNumber;
 
     /**
@@ -49,8 +47,7 @@ public class PaymentDto {
      * Ako su računi u različitim valutama, ovaj iznos se konvertuje
      * prema toAmount.
      */
-    @NotNull(message = "Unesi iznos pre konverzije")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Iznos pre konverzije mora biti veci od 0")
+
     private BigDecimal fromAmount;
 
     /**
@@ -60,20 +57,22 @@ public class PaymentDto {
      * Ako su u različitim valutama, ova vrednost je konvertovana prema
      * kursnim paritetu.
      */
-    @NotNull(message = "Unesi iznos posle konverzije")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Iznos posle konverzije mora biti veci od 0")
+
     private BigDecimal toAmount;
 
     /**
      * Komisija za transakciju. Obično se oduzima od izvornog računa.
      */
-    @NotNull
-    @DecimalMin(value = "0.00",message = "Minimalni commission je 0")
+
     private BigDecimal commission;
 
     /**
      * ID klijenta koji inicira transfer (opciono, za audit log).
      */
-    @NotNull(message = "Unesi id clienta")
+
+
+
     private Long clientId;
+
+
 }
