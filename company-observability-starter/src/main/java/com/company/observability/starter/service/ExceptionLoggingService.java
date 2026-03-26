@@ -43,4 +43,22 @@ public class ExceptionLoggingService {
                 exception // automatski loguje stack trace
         );
     }
+
+    /**
+     * Loguje poslovni izuzetak koji je nastao u sloju servisa.
+     *
+     * @param exception izuzetak koji je nastao
+     * @param className naziv klase servisa u kojoj je izuzetak nastao
+     * @param methodName naziv metode u kojoj je izuzetak nastao
+     */
+    public void logBusinessException(Throwable exception, String className, String methodName) {
+        log.warn(
+                "Exception thrown in service class={} method={} type={} message={}",
+                className,
+                methodName,
+                exception.getClass().getName(),
+                exception.getMessage(),
+                exception
+        );
+    }
 }

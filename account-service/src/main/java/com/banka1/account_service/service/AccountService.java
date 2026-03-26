@@ -3,6 +3,7 @@ package com.banka1.account_service.service;
 import com.banka1.account_service.dto.request.PaymentDto;
 
 import com.banka1.account_service.dto.response.InfoResponseDto;
+import com.banka1.account_service.dto.response.InternalAccountDetailsDto;
 import com.banka1.account_service.dto.response.UpdatedBalanceResponseDto;
 import org.springframework.security.oauth2.jwt.Jwt;
 
@@ -41,4 +42,13 @@ public interface AccountService {
      * @return DTO sa valutama i ID-evima vlasnika oba racuna
      */
     InfoResponseDto info(Jwt jwt, String fromAccountNumber, String toAccountNumber);
+
+    /**
+     * Vraca detalje racuna po broju racuna.
+     * Koristi se od strane transfer-service-a za proveru vlasnika i valute pre izvrsavanja transfera.
+     *
+     * @param accountNumber broj racuna
+     * @return DTO sa detaljima racuna
+     */
+    InternalAccountDetailsDto getAccountDetails(String accountNumber);
 }

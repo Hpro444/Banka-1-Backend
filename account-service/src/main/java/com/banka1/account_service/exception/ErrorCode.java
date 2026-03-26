@@ -35,14 +35,14 @@ public enum ErrorCode {
      * <p>
      * Korisnik je dostigao/prekoračio svoju dnevnu graničnu sumu.
      */
-    DAILY_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_CONTENT, "ERR_ACOCUNT_002", "Pređen dnevni limit"),
+    DAILY_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_CONTENT, "ERR_ACCOUNT_002", "Pređen dnevni limit"),
 
     /**
      * Greška kada bi transakcija prekoračila mesečni limit trošenja.
      * <p>
      * Korisnik je dostigao/prekoračio svoju mesečnu graničnu sumu.
      */
-    MONTHLY_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_CONTENT, "ERR_ACOCUNT_003", "Pređen mesečni limit"),
+    MONTHLY_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_CONTENT, "ERR_ACCOUNT_003", "Pređen mesečni limit"),
 
     /**
      * Greška kada verifikacija (npr. kod iz mobilne aplikacije) nije uspela.

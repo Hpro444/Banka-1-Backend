@@ -9,6 +9,7 @@ import com.company.observability.starter.service.ExceptionLoggingService;
 import com.company.observability.starter.service.JwtAuthenticationUserIdExtractor;
 import com.company.observability.starter.service.RequestLoggingService;
 import com.company.observability.starter.service.SensitiveDataMaskingService;
+import com.company.observability.starter.service.ServiceExceptionLoggingAspect;
 import com.company.observability.starter.service.UserIdMdcService;
 import com.company.observability.starter.web.GlobalExceptionHandler;
 import com.company.observability.starter.web.filter.CorrelationIdFilter;
@@ -23,6 +24,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.core.Ordered;
 import org.springframework.web.filter.OncePerRequestFilter;
 import java.util.Optional;
@@ -262,6 +264,32 @@ public class ObservabilityAutoConfig {
         @ConditionalOnClass(name = "org.springframework.security.core.Authentication")
         public UserIdExtractor jwtAuthenticationUserIdExtractor() {
             return new JwtAuthenticationUserIdExtractor();
+        }
+    }
+
+    /**
+     * Konfiguracija koja registruje AOP aspekt za logovanje poslovnih izuzetaka.
+     * <p>
+     * Aktivira se samo kada je AspectJ dostupan na classpath-u.
+     * Aspekt presrece sve izuzetke bacene iz @Service komponenti i loguje ih na WARN nivou.
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "org.aspectj.lang.annotation.Aspect")
+    @EnableAspectJAutoProxy
+    static class AopConfig {
+
+        /**
+         * Registruje aspekt za logovanje poslovnih izuzetaka iz servisnog sloja.
+         *
+         * @param exceptionLoggingService servis za logovanje izuzetaka
+         * @return aspekt za logovanje poslovnih izuzetaka
+         */
+        @Bean
+        @ConditionalOnMissingBean
+        public ServiceExceptionLoggingAspect serviceExceptionLoggingAspect(
+                ExceptionLoggingService exceptionLoggingService
+        ) {
+            return new ServiceExceptionLoggingAspect(exceptionLoggingService);
         }
     }
 }

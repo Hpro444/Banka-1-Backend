@@ -29,7 +29,7 @@ public class AccountClientImpl implements AccountClient {
     public AccountDto getAccountDetails(String accountNumber) {
         try {
             return accountRestClient.get()
-                    .uri("/api/accounts/{accountNumber}", accountNumber)
+                    .uri("/internal/accounts/{accountNumber}/details", accountNumber)
                     .retrieve()
                     .body(AccountDto.class);
         } catch (HttpClientErrorException.NotFound e) {
@@ -48,7 +48,9 @@ public class AccountClientImpl implements AccountClient {
                     .retrieve()
                     .body(UpdatedBalanceResponseDto.class);
         } catch (HttpClientErrorException.BadRequest e) {
-            // Ovde obično Account Service šalje informaciju o nedovoljno sredstava (400)
+            throw new BusinessException(ErrorCode.INSUFFICIENT_FUNDS, "Neuspešan transfer: " + e.getResponseBodyAsString());
+        } catch (HttpClientErrorException.UnprocessableEntity e) {
+            // Account service vraca 422 za INSUFFICIENT_FUNDS, DAILY_LIMIT_EXCEEDED, MONTHLY_LIMIT_EXCEEDED
             throw new BusinessException(ErrorCode.INSUFFICIENT_FUNDS, "Neuspešan transfer: " + e.getResponseBodyAsString());
         } catch (HttpClientErrorException.Forbidden e) {
             throw new BusinessException(ErrorCode.ACCOUNT_OWNERSHIP_MISMATCH, "Account service: Narušeno vlasništvo nad računom.");

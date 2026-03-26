@@ -4,6 +4,7 @@ import com.banka1.account_service.domain.Account;
 import com.banka1.account_service.domain.enums.Status;
 import com.banka1.account_service.dto.request.PaymentDto;
 import com.banka1.account_service.dto.response.InfoResponseDto;
+import com.banka1.account_service.dto.response.InternalAccountDetailsDto;
 import com.banka1.account_service.dto.response.UpdatedBalanceResponseDto;
 import com.banka1.account_service.repository.AccountRepository;
 import com.banka1.account_service.service.AccountService;
@@ -127,6 +128,14 @@ public class AccountServiceImplementation implements AccountService {
         if(!from.getVlasnik().equals(to.getVlasnik()))
             throw new IllegalArgumentException("Transfer se moze odvijati samo za racune istog vlasnika");
         return execute(paymentDto, from, to, bankSender, bankTarget);
+    }
+
+    @Override
+    public InternalAccountDetailsDto getAccountDetails(String accountNumber) {
+        Account account = accountRepository.findByBrojRacuna(accountNumber).orElse(null);
+        if (account == null)
+            throw new IllegalArgumentException("Ne postoji racun:" + accountNumber);
+        return InternalAccountDetailsDto.from(account);
     }
 
     @Override

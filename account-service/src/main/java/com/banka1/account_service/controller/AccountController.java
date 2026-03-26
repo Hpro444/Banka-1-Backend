@@ -2,6 +2,7 @@ package com.banka1.account_service.controller;
 
 import com.banka1.account_service.dto.request.PaymentDto;
 import com.banka1.account_service.dto.response.InfoResponseDto;
+import com.banka1.account_service.dto.response.InternalAccountDetailsDto;
 import com.banka1.account_service.dto.response.UpdatedBalanceResponseDto;
 import com.banka1.account_service.service.AccountService;
 import jakarta.validation.Valid;
@@ -57,7 +58,7 @@ public class AccountController {
      * Obradi transfer novca izmedju dva racuna istog vlasnika.
      * <p>
      * Razlikuje se od {@code /transaction} jer zahteva da oba racuna
-     * pripadaju istom vlasniku. Ažurira stanja oba racuna (izvor i odrediste)
+     * pripadaju istom vlasniku. Azurira stanja oba racuna (izvor i odrediste)
      * kao i banka-racune za komisije.
      *
      * @param jwt JWT token servisa koji prave zahtev
@@ -72,11 +73,25 @@ public class AccountController {
     }
 
     /**
+     * Vraca detalje racuna po broju racuna.
+     * Koristi se od strane transfer-service-a za proveru vlasnika i valute pre izvrsavanja transfera.
+     * Polja su u engleskom formatu kako bi bila kompatibilna sa AccountDto u transfer-service-u.
+     *
+     * @param jwt JWT token servisa koji prave zahtev
+     * @param accountNumber broj racuna
+     * @return {@link InternalAccountDetailsDto} sa detaljima racuna
+     * @throws IllegalArgumentException ako racun ne postoji
+     */
+    @GetMapping("/{accountNumber}/details")
+    public ResponseEntity<InternalAccountDetailsDto> getAccountDetails(@AuthenticationPrincipal Jwt jwt, @PathVariable String accountNumber) {
+        return new ResponseEntity<>(accountService.getAccountDetails(accountNumber), HttpStatus.OK);
+    }
+
+    /**
      * Preuzima informacije o dva racuna za verifikaciju pre transakcije.
      * <p>
      * Koristi se od strane drugih servisa (npr. transaction-service) da provjeri
      * validnost racuna, njihove valute i ID-eve vlasnika pre izvrsavanja transakcije.
-     * Vraća также kontakt informacije vlasnika.
      *
      * @param jwt JWT token servisa koji prave zahtev
      * @param fromBankNumber broj izvornog racuna posiljaoca
