@@ -4,19 +4,52 @@ import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
 /**
- * Enum koji centralizuje sve poslovne greske aplikacije.
- * Svaka konstanta nosi HTTP status, masinsko-citljivi kod i kratak naslov koji se
- * vracaju klijentu putem {@link BusinessException} i {@code GlobalExceptionHandler}-a.
+ * Enum koji centralizuje sve poslovne greške aplikacije specifične za account-service.
+ * <p>
+ * Svaka konstanta sadrži:
+ * <ul>
+ *   <li>HTTP status - status kod koji će biti vraćen klijentu</li>
+ *   <li>Maćinski-čitljivi kod - stabilan identifikator greške (npr. ERR_ACCOUNT_001)</li>
+ *   <li>Naslov - kratka, ljudski-čitljiva poruka greške</li>
+ * </ul>
+ * <p>
+ * Greške se vraćaju klijentu kroz {@link BusinessException} i obrađuju se
+ * u {@code GlobalExceptionHandler}-u koji generiše standardizovani {@code ErrorResponseDto}.
+ * <p>
+ * Preporučuje se koristiti ove kodove u logima i monitor-anju za lakšu dijagnostiku.
  */
 @Getter
 public enum ErrorCode {
 
     // ── (ERR_ACCOUNT_xxx) ─────────────────────────────────────
 
-    INSUFFICIENT_FUNDS(HttpStatus.UNPROCESSABLE_CONTENT,"ERR_ACCOUNT_001","Nema dovoljno novca na racunu"),
-    DAILY_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_CONTENT,"ERR_ACOCUNT_002","Predjen dnevni limit"),
-    MONTHLY_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_CONTENT,"ERR_ACOCUNT_003","Predjen mesecni limit"),
-    VERIFICATION_FAILED(HttpStatus.FORBIDDEN,"ERR_ACCOUNT_004","Neuspesna verifikacija");
+    /**
+     * Greška kada račun nema dovoljno sredstava za izvršavanje transakcije.
+     * <p>
+     * Obično znači da je raspoloživo stanje manje od tražene sume plus komisija.
+     */
+    INSUFFICIENT_FUNDS(HttpStatus.UNPROCESSABLE_CONTENT, "ERR_ACCOUNT_001", "Nema dovoljno novca na računu"),
+
+    /**
+     * Greška kada bi transakcija prekoračila dnevni limit trošenja.
+     * <p>
+     * Korisnik je dostigao/prekoračio svoju dnevnu graničnu sumu.
+     */
+    DAILY_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_CONTENT, "ERR_ACOCUNT_002", "Pređen dnevni limit"),
+
+    /**
+     * Greška kada bi transakcija prekoračila mesečni limit trošenja.
+     * <p>
+     * Korisnik je dostigao/prekoračio svoju mesečnu graničnu sumu.
+     */
+    MONTHLY_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_CONTENT, "ERR_ACOCUNT_003", "Pređen mesečni limit"),
+
+    /**
+     * Greška kada verifikacija (npr. kod iz mobilne aplikacije) nije uspela.
+     * <p>
+     * Obično znači da je kod istekao, neispravna ili pokušaj nije mogao biti validiran.
+     */
+    VERIFICATION_FAILED(HttpStatus.FORBIDDEN, "ERR_ACCOUNT_004", "Neuspešna verifikacija");
 
     /** HTTP status koji se vraca klijentu kada se baci ova greska. */
     private final HttpStatus httpStatus;

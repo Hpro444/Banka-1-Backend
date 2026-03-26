@@ -21,8 +21,27 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 /**
- * Centralizovani hendler gresaka za sve REST kontrolere.
- * Mapira ocekivane i neocekivane izuzetke na standardizovane HTTP odgovore sa {@link ErrorResponseDto} telom.
+ * Centralizovani hendler grešaka za sve REST kontrolere account-service-a.
+ * <p>
+ * Mapira očekivane i neočekivane izuzetke na standardizovane HTTP odgovore sa
+ * {@link ErrorResponseDto} telom. Sve greške vraćaju konzistentnu strukturu
+ * sa kodom, naslovom i detaljima greške.
+ * <p>
+ * Podržani izuzeci:
+ * <ul>
+ *   <li>{@link BusinessException} - poslovne greške sa {@link ErrorCode}</li>
+ *   <li>{@link MethodArgumentNotValidException} - greške validacije DTO-a sa mapom polja</li>
+ *   <li>{@link DataIntegrityViolationException} - kršenja integrity ograničenja baze (duplikati)</li>
+ *   <li>{@link NoSuchElementException} - traženjem resurs nije pronađen (404)</li>
+ *   <li>{@link IllegalArgumentException} - neispravni argumenti</li>
+ *   <li>{@link AmqpException} - greške RabbitMQ komunikacije</li>
+ *   <li>{@link AccessDeniedException} - pristup odbijen (403)</li>
+ *   <li>{@link AuthenticationException} - autentifikacija nije uspela (401)</li>
+ *   <li>{@link Exception} - svi ostali neočekivani izuzeci (500)</li>
+ * </ul>
+ * <p>
+ * Svi izuzeci se obrađuju sa odgovarajućim HTTP status kodovima kako je navedeno
+ * u svakom `@ExceptionHandler` metodu.
  */
 @RestControllerAdvice
 @Component("accountServiceGlobalExceptionHandler")

@@ -11,8 +11,11 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Imutabilni JPA entitet koji predstavlja valutu podrzanu od strane banke.
- * Podaci o valutama se ucitavaju putem Liquibase seed migracija i ne menjaju se u runtime-u.
+ * Nepromenljivi JPA entitet koji predstavlja valutu podržanu od strane banke.
+ * <p>
+ * Podaci o valutama se učitavaju putem Liquibase seed migracija pri pokretanju
+ * i ne menjaju se u runtime-u. Entitet je označen kao {@code @Immutable} da bi
+ * Hibernate znao da nema potrebe za praćenjem izmena.
  */
 @Entity
 @org.hibernate.annotations.Immutable
@@ -28,41 +31,43 @@ public class Currency extends BaseEntity {
     @Column(nullable = false, updatable = false)
     private String naziv;
 
-    /** ISO kod valute (npr. RSD, EUR, USD). */
+    /** ISO 4217 kod valute (npr. RSD, EUR, USD). */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, updatable = false, unique = true)
     private CurrencyCode oznaka;
 
-    /** Simbol valute (npr. "din", "€", "$"). */
+    /** Simbol valute za prikaz (npr. "din", "€", "$"). */
     @NotBlank
     @Column(nullable = false, updatable = false, unique = true)
     private String simbol;
 
-    /** Skup zemalja u kojima se ova valuta koristi. */
+    /** Skup zemalja u kojima se ova valuta koristi (npr. "Srbija", "Švajcarska"). */
     @ElementCollection
     @CollectionTable(name = "currency_countries", joinColumns = @JoinColumn(name = "currency_id"))
     @Column(name = "country", nullable = false)
     private Set<String> countries = new HashSet<>();
 
-    /** Kratak opis valute. */
+    /** Kratak opisni tekst o valuti (npr. "Valuta Srbije"). */
     @NotBlank
     @Column(nullable = false, updatable = false)
     private String opis;
 
-    /** Status valute — neaktivne valute ne mogu se koristiti za kreiranje novih racuna. */
+    /** Status valute — samo ACTIVE valute mogu se koristiti za kreiranje novih računa. */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, updatable = false)
     private Status status;
 
     /**
      * Kreira novu valutu sa svim obaveznim podacima.
+     * <p>
+     * Koristi se tokom Liquibase seed migracija za inicijalizaciju valuta.
      *
-     * @param naziv     pun naziv valute
-     * @param oznaka    ISO kod valute
-     * @param simbol    simbol valute
+     * @param naziv     pun naziv valute (npr. "Srpski dinar")
+     * @param oznaka    ISO 4217 kod valute (npr. RSD, EUR, USD)
+     * @param simbol    simbol valute za prikaz (npr. "din", "€", "$")
      * @param countries skup zemalja u kojima se valuta koristi
-     * @param opis      kratak opis valute
-     * @param status    inicijalni status valute
+     * @param opis      kratak opisni tekst o valuti
+     * @param status    inicijalni status valute (ACTIVE ili INACTIVE)
      */
     public Currency(String naziv, CurrencyCode oznaka, String simbol, Set<String> countries, String opis, Status status) {
         this.naziv = naziv;
@@ -74,9 +79,11 @@ public class Currency extends BaseEntity {
     }
 
     /**
-     * Vraca nepromenjiv pogled na skup zemalja ove valute.
+     * Vraća nepromenjiv pogled na skup zemalja ove valute.
+     * <p>
+     * Vraćeni set je zaštićen od promena, što održava integritet entiteta.
      *
-     * @return nepromenljivi set zemalja
+     * @return nepromenljivi skup zemalja
      */
     public Set<String> getCountries() {
         return Collections.unmodifiableSet(countries);

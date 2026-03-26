@@ -18,16 +18,31 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/**
+ * Implementacija servisa za izvrsavanje internih transakcija i transfera.
+ * <p>
+ * Validira račune, njihove statusu i saldone, zatim delegira atomičnu
+ * operaciju transfera na {@link TransactionalService}. Koristi retry logiku
+ * za optimističke lock greške.
+ */
 @RequiredArgsConstructor
 @Service
 public class AccountServiceImplementation implements AccountService {
+    /** Servis za atomične debitne/kreditne operacije. */
     private final TransactionalService transactionalService;
+    /** Repozitorijum za pristup računima iz baze. */
     private final AccountRepository accountRepository;
 
+    /**
+     * Validira da račun postoji, ima ACTIVE status i nije istekao.
+     *
+     * @param accountNumber broj računa koji se validira
+     * @return validiran Account objekat
+     * @throws IllegalArgumentException ako račun ne postoji, nije aktivan ili je istekao
+     */
     private Account validate(String accountNumber)
     {
         Account account = accountRepository.findByBrojRacuna(accountNumber).orElse(null);
-        //TODO prebaciti sve u business (svaki controller)
         if(account==null)
             throw new IllegalArgumentException("Ne postoji racun:"+accountNumber);
         if(account.getStatus()== Status.INACTIVE)
@@ -36,6 +51,15 @@ public class AccountServiceImplementation implements AccountService {
             throw new IllegalArgumentException("Racun je istekao:"+accountNumber);
         return account;
     }
+    /**
+     * Pronalazi i validira banka-račun u tražnoj valuti.
+     * <p>
+     * Banka-računi se identifikuju po vlasnikuID=-1L i valuti računa.
+     *
+     * @param to račun čija valuta se koristi za pronalaženje odgovarajućeg banka-računa
+     * @return validiran Account banka-račun
+     * @throws IllegalStateException ako banka-račun ne postoji, nije aktivan ili je istekao
+     */
     private Account validateBank(Account to)
     {
         Account account=accountRepository.findByVlasnikAndCurrency(-1L,to.getCurrency()).orElse(null);
@@ -49,7 +73,21 @@ public class AccountServiceImplementation implements AccountService {
     }
 
 
-    //todo potencijalno migrirati na Springov Retry, za sad ne treba ali moze biti lepse
+    /**
+     * Izvršava transfer sa retry logikom za optimističke lock greške.
+     * <p>
+     * Prvo validira vlasnika računa, zatim pokušava transfer sa do 3 pokušaja
+     * u slučaju konkurentnog pristupa istom računu.
+     *
+     * @param paymentDto podaci o transakciji
+     * @param from izvorni račun
+     * @param to odredišni račun
+     * @param bankSender banka-račun posiljaoca
+     * @param bankTarget banka-račun primaoca
+     * @return azurirani saldoi nakon transfera
+     * @throws IllegalArgumentException ako korisnik nije vlasnik računa
+     * @throws ObjectOptimisticLockingFailureException ako se greška ponovi 3 puta
+     */
     private UpdatedBalanceResponseDto execute(PaymentDto paymentDto, Account from, Account to, Account bankSender, Account bankTarget) {
         if(!from.getVlasnik().equals(paymentDto.getClientId()))
             throw new IllegalArgumentException("Nisi vlasnik racuna");

@@ -30,13 +30,14 @@ import java.util.List;
 @AllArgsConstructor
 @PreAuthorize("hasAnyRole('CLIENT_BASIC','BASIC')")
 public class CurrencyController {
+    /** Servis za pristup podacima o valutama. */
     private CurrencyService currencyService;
 
     /**
-     * Preuzima sve dostupne valute kao listu.
+     * Preuzima sve dostupne (aktivne) valute kao listu bez paginacije.
      *
-     * @param jwt JWT token korisnika
-     * @return lista svih {@link Currency} objekata
+     * @param jwt JWT token autentifikovanog korisnika
+     * @return lista svih aktivnih {@link Currency} objekata
      */
     @GetMapping("/getAll")
     public ResponseEntity<List<Currency>> findAll(@AuthenticationPrincipal Jwt jwt){
@@ -44,12 +45,12 @@ public class CurrencyController {
     }
 
     /**
-     * Preuzima sve dostupne valute sa mogucnoscu paginacije.
+     * Preuzima sve dostupne (aktivne) valute sa mogucnoscu paginacije.
      *
-     * @param jwt JWT token korisnika
-     * @param page broj stranice (podrazumevana: 0)
-     * @param size velicina stranice, max 100 (podrazumevana: 10)
-     * @return {@link Page} sa {@link Currency} objektima
+     * @param jwt JWT token autentifikovanog korisnika
+     * @param page broj stranice, 0-indeksiran (podrazumevana: 0)
+     * @param size velicina stranice, maksimalno 100 (podrazumevana: 10)
+     * @return {@link Page} sa {@link Currency} objektima za zadatu stranicu
      */
     @GetMapping("/getAllPage")
     public ResponseEntity<Page<Currency>> findAllPage(@AuthenticationPrincipal Jwt jwt,
@@ -59,14 +60,15 @@ public class CurrencyController {
     }
 
     /**
-     * Preuzima valutu po kodu (npr. USD, EUR, GBP).
+     * Preuzima valutu po ISO kodu kao query parametar (npr. USD, EUR, GBP).
      * <p>
      * Kod se prosledi kao query parametar i automatski se konvertuje u
-     * {@link CurrencyCode} enum.
+     * {@link CurrencyCode} enum. Kod se normalizuje na velika slova pre konverzije.
      *
-     * @param jwt JWT token korisnika
-     * @param code kod valute (napomena: se konvertuje u velika slova)
+     * @param jwt JWT token autentifikovanog korisnika
+     * @param code ISO kod valute (npr. "usd", "eur", "gbp"; bice konvertovan u velika slova)
      * @return {@link Currency} objekat za zadati kod
+     * @throws IllegalArgumentException ako kod nije validan ISO kod
      */
     @GetMapping()
     public ResponseEntity<Currency> findAllByCode(@AuthenticationPrincipal Jwt jwt,@RequestParam String code){
@@ -74,11 +76,15 @@ public class CurrencyController {
     }
 
     /**
-     * Preuzima valutu po kodu preko path parametra.
+     * Preuzima valutu po ISO kodu kao path parametar (npr. /USD, /EUR, /GBP).
+     * <p>
+     * Kod se prosledi kao deo URL puta i normalizuje se na velika slova pre konverzije
+     * u {@link CurrencyCode} enum.
      *
-     * @param jwt JWT token korisnika
-     * @param code kod valute u path-u (napomena: se konvertuje u velika slova)
+     * @param jwt JWT token autentifikovanog korisnika
+     * @param code ISO kod valute u path-u (npr. "usd", "eur", "gbp"; bice konvertovan u velika slova)
      * @return {@link Currency} objekat za zadati kod
+     * @throws IllegalArgumentException ako kod nije validan ISO kod
      */
     @GetMapping("/{code}")
     public ResponseEntity<Currency> findByCode(@AuthenticationPrincipal Jwt jwt, @PathVariable String code) {

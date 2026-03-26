@@ -14,15 +14,20 @@ import java.math.BigDecimal;
 /**
  * DTO za zahtev izvršavanja finansijske transakcije ili transfera.
  * <p>
- * Koristi se za intra-bank transfere novca između računa, sa
- * mogućnošću konverzije između različitih valuta i nabijanjem komisije.
+ * Koristi se za intra-bank transfere novca između računa, sa mogućnošću konverzije
+ * između različitih valuta i nabijanjem komisije. Sadrži sve potrebne podatke za
+ * validaciju i izvršavanje transakcije između dva računa.
  * <p>
  * Validacija:
  * <ul>
  *   <li>Oba broja računa moraju biti 19-cifreni</li>
- *   <li>Iznosi (fromAmount i toAmount) moraju biti pozitivni</li>
+ *   <li>Iznosi (fromAmount i toAmount) moraju biti pozitivni (> 0)</li>
  *   <li>Komisija mora biti >= 0</li>
+ *   <li>Klijent ID mora biti popunjen</li>
  * </ul>
+ * <p>
+ * Primer korišćenja: Transfer od 1000.00 RSD sa 10.00 RSD komisije konvertuje se
+ * na 950.95 EUR (ako se radi o межвалутном transferu).
  */
 @AllArgsConstructor
 @NoArgsConstructor

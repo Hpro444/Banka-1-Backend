@@ -17,30 +17,94 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
-//todo pogledati da li za sve treba da se filtriraju aktivni
+/**
+ * Spring Data JPA repository za upravljanje bankovskim računima.
+ * <p>
+ * Omogućava jednostavno pronalaženje, pretragu i ažuriranje računa sa standardnim
+ * i prilagođenim upitima. Podržava pronalaženje po raznim kriterijumima
+ * (broj računa, vlasnik, valuta, status) i operacije batch ažuriranja
+ * (reset dnevne i mesečne potrošnje).
+ * <p>
+ * Napomena: Neki upiti trebalo bi da se filtriraju po aktivnim računima.
+ */
 @Repository
-public interface AccountRepository extends JpaRepository<Account,Long> {
+public interface AccountRepository extends JpaRepository<Account, Long> {
+    /**
+     * Proverava da li račun sa datim brojem već postoji.
+     *
+     * @param brojRacuna broj računa za pretragu
+     * @return {@code true} ako račun postoji, {@code false} inače
+     */
     boolean existsByBrojRacuna(String brojRacuna);
+
+    /**
+     * Proverava da li vlasnik već ima račun sa datim nazivom.
+     *
+     * @param vlasnik ID vlasnika računa
+     * @param nazivRacuna naziv računa
+     * @return {@code true} ako postoji račun sa tim nazivom za vlasnika, {@code false} inače
+     */
     boolean existsByVlasnikAndNazivRacuna(Long vlasnik, String nazivRacuna);
 
+    /**
+     * Pronalazi sve račune vlasnika sa datim statusom, paginirano.
+     *
+     * @param id ID vlasnika
+     * @param status status računa
+     * @param pageable parametri paginacije
+     * @return stranica sa računima koji zadovoljavaju uslov
+     */
     Page<Account> findByVlasnikAndStatus(Long id, Status status, Pageable pageable);
 
+    /**
+     * Pronalazi račun po broju računa.
+     *
+     * @param brojRacuna jedinstveni 19-cifreni broj računa
+     * @return {@code Optional} sa računom ako postoji
+     */
     Optional<Account> findByBrojRacuna(String brojRacuna);
 
+    /**
+     * Pronalazi račun po ID-u i valuti.
+     *
+     * @param id ID računa
+     * @param currency valuta
+     * @return {@code Optional} sa računom ako postoji
+     */
     Optional<Account> findByIdAndCurrency(Long id, Currency currency);
 
+    /**
+     * Pronalazi prvi račun vlasnika sa datom valutom.
+     *
+     * @param vlasnik ID vlasnika
+     * @param currency valuta
+     * @return {@code Optional} sa računom ako postoji
+     */
     Optional<Account> findByVlasnikAndCurrency(Long vlasnik, Currency currency);
 
+    /**
+     * Pronalazi sve aktivne tekuće račune koji imaju uslugu održavanja računa (sa gebinom > 0).
+     * <p>
+     * Koristi se za batch obračun mesečnih gebrina.
+     *
+     * @return lista aktivnih tekućih računa sa gebinom
+     */
     @Query("""
         SELECT a
         FROM CheckingAccount a
         WHERE a.status = com.banka1.account_service.domain.enums.Status.ACTIVE
           AND a.odrzavanjeRacuna IS NOT NULL
-          AND a.odrzavanjeRacuna> 0
+          AND a.odrzavanjeRacuna > 0
     """)
     List<CheckingAccount> findAllActiveCheckingAccountsWithMaintenanceFee();
 
-
+    /**
+     * Resetuje dnevnu potrošnju na 0 za sve račune.
+     * <p>
+     * Koristi se kao batch operacija koja se obično izvršava jednom dnevno preko scheduler-a.
+     *
+     * @return broj ažuriranih redova
+     */
     @Modifying
     @Query("""
         UPDATE Account a
@@ -48,7 +112,13 @@ public interface AccountRepository extends JpaRepository<Account,Long> {
     """)
     int resetDailySpending();
 
-
+    /**
+     * Resetuje mesečnu potrošnju na 0 za sve račune.
+     * <p>
+     * Koristi se kao batch operacija koja se obično izvršava prvi dan meseca preko scheduler-a.
+     *
+     * @return broj ažuriranih redova
+     */
     @Modifying
     @Query("""
         UPDATE Account a
@@ -56,6 +126,18 @@ public interface AccountRepository extends JpaRepository<Account,Long> {
     """)
     int resetMonthlySpending();
 
+    /**
+     * Pretražuje račune po broju računa i imenu vlasnika sa case-insensitive podudaranjem.
+     * <p>
+     * Svi parametri su opcioni i koriste se kao wildcard pretrage sa LIKE operatorom.
+     * Rezultati su sortirani po prezimenu i imenu vlasnika.
+     *
+     * @param brojRacuna parcijalni broj računa za pretragu (opciono)
+     * @param ime parcijalno ime vlasnika za pretragu (opciono)
+     * @param prezime parcijalno prezime vlasnika za pretragu (opciono)
+     * @param pageable parametri paginacije
+     * @return stranica sa računima koji zadovoljavaju uslov
+     */
     @Query("""
     SELECT a FROM Account a
     WHERE LOWER(a.brojRacuna) LIKE LOWER(CONCAT('%', COALESCE(:brojRacuna, ''), '%'))
@@ -70,9 +152,23 @@ public interface AccountRepository extends JpaRepository<Account,Long> {
             Pageable pageable
     );
 
+    /**
+     * Pronalazi sve bankovne (sistemske) račune sa ID vlasnika -1.
+     * <p>
+     * Bankovni računi se koriste kao soborna sredstva za razne operacije
+     * (npr. prikupljanje gebrina, provizija).
+     *
+     * @return lista svih bankovnih računa
+     */
     @Query("SELECT a FROM Account a WHERE a.vlasnik = -1")
     List<Account> findAllBankAccounts();
 
+    /**
+     * Pronalazi bankovni račun za datim kodom valute.
+     *
+     * @param currencyCode kod valute (npr. RSD, EUR, USD)
+     * @return {@code Optional} sa bankovnim računom u datoj valuti
+     */
     @Query("SELECT a FROM Account a WHERE a.vlasnik = -1 AND a.currency.oznaka = :currencyCode")
     Optional<Account> findBankAccountByCurrencyCode(@Param("currencyCode") CurrencyCode currencyCode);
 }

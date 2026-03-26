@@ -25,6 +25,10 @@ import java.util.List;
  * </ul>
  * <p>
  * Koristi se u svim odgovorima gde klijent traži detaljne informacije o računu.
+ * Automatski mapira entitete {@link Account}, {@link CheckingAccount} i {@link FxAccount}
+ * kroz custom konstruktor sa detektovanjem tipa računa.
+ * <p>
+ * Primer: GET /accounts/{id} vraća DTO sa svim detaljima računa i vezanim karticama.
  */
 @Getter
 @Setter

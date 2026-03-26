@@ -8,17 +8,20 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * DTO za zahtev promenе названa bankarskog racuna.
+ * DTO za zahtev promene naziva bankarskog računa.
  * <p>
- * Omogucava vlasnicima racuna da promene naziv svog racuna
- * na nešto što je lakše za pamcenje.
+ * Omogućava vlasnicima računa da promene naziv svog računa na nešto što je lakše
+ * za pamćenje i organizovanje. Novi naziv se primenjuje odmah nakon validacije i
+ * sprema u bazu podataka.
  * <p>
  * Validacija:
  * <ul>
- *   <li>Naziv mora biti popunjen</li>
+ *   <li>Naziv mora biti popunjen (ne sme biti prazan)</li>
  *   <li>Naziv mora imati između 3 i 50 karaktera</li>
- *   <li>Naziv mora biti jedinstven za tog vlasnika</li>
+ *   <li>Naziv mora biti jedinstven za tog vlasnika (nema duplikata)</li>
  * </ul>
+ * <p>
+ * Primeri validnih naziva: "Moj tekući račun", "Savings", "Holiday Fund 2024".
  */
 @AllArgsConstructor
 @NoArgsConstructor

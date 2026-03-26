@@ -5,18 +5,28 @@ import com.banka1.account_service.repository.AccountRepository;
 import java.util.Random;
 
 /**
- * Utility klasa za generisanje i validaciju 19-cifrenih bankovskih brojeva racuna.
+ * Utility klasa za generisanje i validaciju 19-cifrenih bankovskih brojeva računa.
  * <p>
- * <strong>Struktura broja racuna:</strong>
+ * Omogućava kreiranje novih, jedinstvenih brojeva računa i validaciju postojećih.
+ * Koristi se pri kreiranju novih računa da bi se osiguralo da je svaki broj
+ * validan, jedinstven i formalno ispravan prema bankovnom standardu.
+ * <p>
+ * <strong>Struktura 19-cifrenog broja računa:</strong>
  * <pre>
  *   Pozicije 1–3    : Kod banke (fiksno: 111)
- *   Pozicije 4–7    : Kod fijale (fiksno: 0001)
- *   Pozicije 8–16   : 9 nasumicnih cifara
- *   Pozicije 17–18  : Kod tipa racuna (2 cifre, npr. 11 za licni tekuci, 21 za poslovni)
- *   Pozicija 19     : Kontrolna cifra (modulo 11)
+ *   Pozicije 4–7    : Kod filijale (fiksno: 0001)
+ *   Pozicije 8–16   : 9 nasumičnih cifara (jedinstveni deo)
+ *   Pozicije 17–18  : Kod tipa računa (2 cifre, npr. 11 za lični tekući, 21 za poslovni)
+ *   Pozicija 19     : Kontrolna cifra (modulo 11 algoritam)
  * </pre>
  * <p>
- * Ova klasa je immutable i ne sadrzi stanje.
+ * Primeri:
+ * <ul>
+ *   <li>1110001 000000001 11 1 = lični tekući račun sa kontrolnom cifrom 1</li>
+ *   <li>1110001 999999999 21 5 = poslovni račun sa kontrolnom cifrom 5</li>
+ * </ul>
+ * <p>
+ * Ova klasa je immutable i ne sadrži stanje; svi metodi su statički.
  */
 public final class AccountNumberGenerator {
 

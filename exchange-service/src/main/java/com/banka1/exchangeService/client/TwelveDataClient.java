@@ -16,28 +16,32 @@ import java.time.ZoneOffset;
 import java.util.Map;
 
 /**
- * Klijent za dohvat deviznog kursa sa Twelve Data servisa.
+ * HTTP client for fetching exchange rate data from the Twelve Data service.
+ * Handles communication with the external Twelve Data API and parses responses
+ * into internal DTO objects.
  */
 @Component
 @RequiredArgsConstructor
 public class TwelveDataClient {
 
     /**
-     * Namenski HTTP klijent konfigurisan za Twelve Data bazni URL.
+     * Specialized HTTP client configured for the Twelve Data base URL.
      */
     private final RestClient twelveDataRestClient;
 
     /**
-     * Konfiguraciona svojstva za pristup Twelve Data API-ju.
+     * Configuration properties for accessing the Twelve Data API,
+     * including the API key and endpoint configuration.
      */
     private final ExchangeRateProperties exchangeRateProperties;
 
     /**
-     * Dohvata kurs za trazeni valutni par.
+     * Fetches the current exchange rate for the requested currency pair.
      *
-     * @param fromCurrency izvorna valuta
-     * @param toCurrency   ciljna valuta
-     * @return parsiran odgovor eksternog servisa
+     * @param fromCurrency source currency code
+     * @param toCurrency target currency code
+     * @return parsed response from the external Twelve Data service
+     * @throws BusinessException if the fetch fails or the response is invalid
      */
     public TwelveDataRateResponse fetchExchangeRate(String fromCurrency, String toCurrency) {
         try {
@@ -61,12 +65,14 @@ public class TwelveDataClient {
     }
 
     /**
-     * Validira i mapira raw JSON odgovor Twelve Data endpoint-a u interni DTO model `TwelveDataRateResponse`.
+     * Validates and maps the raw JSON response from the Twelve Data endpoint
+     * into the internal DTO model {@code TwelveDataRateResponse}.
      *
-     * @param body         deserializovan odgovor eksternog servisa
-     * @param fromCurrency ocekivana izvorna valuta
-     * @param toCurrency   ocekivana ciljna valuta
-     * @return parsiran odgovor sa kursom i datumom snapshot-a
+     * @param body deserialized response from the external service
+     * @param fromCurrency expected source currency
+     * @param toCurrency expected target currency
+     * @return parsed response with rate and snapshot date
+     * @throws BusinessException if validation fails
      */
     private TwelveDataRateResponse parseResponse(Map<String, Object> body, String fromCurrency, String toCurrency) {
         if (body == null) {
@@ -118,13 +124,15 @@ public class TwelveDataClient {
     }
 
     /**
-     * Cita decimalno polje iz Twelve Data odgovora.
-     * Prosledimo mu fieldName = "rate", za "rate": "117.42, vraticemo BigDecimal("117.42")
-     * Poenta je da to uradimo ovde jednom, a ne da dupliramo proveru u main kodu sa IF-ovima
+     * Reads and parses a decimal field from the Twelve Data response.
+     * For example, if fieldName is "rate" and the response contains "rate": "117.42",
+     * this method returns BigDecimal("117.42").
+     * This centralized parsing prevents code duplication throughout the service.
      *
-     * @param node      mapa polja odgovora
-     * @param fieldName naziv obaveznog polja (npr. rate)
-     * @return parsirana decimalna vrednost
+     * @param node map of response fields
+     * @param fieldName name of the required field (e.g., "rate")
+     * @return parsed decimal value
+     * @throws BusinessException if the field is missing or invalid
      */
     private BigDecimal readDecimal(Map<String, Object> node, String fieldName) {
         Object field = node.get(fieldName);
@@ -145,12 +153,13 @@ public class TwelveDataClient {
     }
 
     /**
-     * Cita obavezno string polje iz Twelve Data odgovora.
-     * Isti princip kao rada kao readDecimal.
+     * Reads and parses a required string field from the Twelve Data response.
+     * Uses the same centralized parsing principle as {@code readDecimal} to avoid duplication.
      *
-     * @param node      mapa polja odgovora
-     * @param fieldName naziv obaveznog polja
-     * @return neprazna string vrednost
+     * @param node map of response fields
+     * @param fieldName name of the required field
+     * @return non-empty string value
+     * @throws BusinessException if the field is missing or empty
      */
     private String readRequiredString(Map<String, Object> node, String fieldName) {
         Object field = node.get(fieldName);

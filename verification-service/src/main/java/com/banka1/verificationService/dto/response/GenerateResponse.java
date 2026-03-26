@@ -4,19 +4,24 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * DTO za odgovor nakon generisanja sesije verifikacije.
- * Sadrži ID sesije koji se može koristiti za naredne operacije.
+ * Data Transfer Object (DTO) for the response after generating a verification session.
+ *
+ * Provides the client with the session ID needed for subsequent validation requests.
+ * The OTP code is never returned; it is sent separately via email by the notification service.
  */
 @Getter
 @Setter
 public class GenerateResponse {
-    /** ID novo-kreirane sesije verifikacije. */
+    /**
+     * The unique identifier of the newly created verification session.
+     * Client must provide this ID when submitting the verification code for validation.
+     */
     private Long sessionId;
 
     /**
-     * Konstruktor za kreiranje odgovora sa ID-om sesije.
+     * Constructs a response with the generated session ID.
      *
-     * @param sessionId ID generisane sesije
+     * @param sessionId the ID of the newly created verification session
      */
     public GenerateResponse(Long sessionId) {
         this.sessionId = sessionId;

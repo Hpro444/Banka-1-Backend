@@ -8,25 +8,49 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Eksplicitno podrzane valute exchange-service domena.
- * Enum sluzi kao centralno mesto za validaciju ulaznih valutnih kodova
- * i za definisanje koje strane valute se fetchuju iz eksternog API-ja.
+ * Explicitly supported currencies in the exchange-service domain.
+ * This enum serves as a central location for validating input currency codes
+ * and defining which foreign currencies are fetched from the external API.
  */
 public enum SupportedCurrency {
+    /**
+     * Serbian Dinar - base currency.
+     */
     RSD,
+    /**
+     * Euro.
+     */
     EUR,
+    /**
+     * Swiss Franc.
+     */
     CHF,
+    /**
+     * United States Dollar.
+     */
     USD,
+    /**
+     * British Pound.
+     */
     GBP,
+    /**
+     * Japanese Yen.
+     */
     JPY,
+    /**
+     * Canadian Dollar.
+     */
     CAD,
+    /**
+     * Australian Dollar.
+     */
     AUD;
 
     /**
-     * Parsira korisnicki ili API ulaz u podrzanu enum vrednost.
+     * Parses user or API input into a supported enum value.
      *
-     * @param currencyCode troslovni ISO kod valute
-     * @return podrzana valuta iz domena
+     * @param currencyCode three-letter ISO currency code
+     * @return supported currency from the domain
      */
     public static SupportedCurrency from(String currencyCode) {
         String supportedValues = Arrays.stream(values())
@@ -51,13 +75,13 @@ public enum SupportedCurrency {
     }
 
     /**
-     * Vraca valute za koje servis radi eksterni fetch dnevnog kursa.
-     * RSD je iskljucen jer se za njega ne trazi provider kurs.
-     * Tehnicki, RSD ima syntetic kurs = 1
-     * Pošto je RSD bazna valuta, za nju ne fetchujemo kurs spolja.
-     * Zato metoda vraca samo EUR, CHF, USD, GBP, JPY, CAD, AUD
+     * Returns the currencies for which the service performs external daily rate fetches.
+     * RSD is excluded because it does not require an external provider rate.
+     * Technically, RSD has a synthetic rate of 1:1.
+     * Since RSD is the base currency, we do not fetch rates for it externally.
+     * Therefore, this method returns only EUR, CHF, USD, GBP, JPY, CAD, AUD.
      *
-     * @return lista podrzanih stranih valuta za fetch
+     * @return list of supported foreign currencies to fetch
      */
     public static List<String> trackedCurrencyCodes() {
         return Arrays.stream(values())

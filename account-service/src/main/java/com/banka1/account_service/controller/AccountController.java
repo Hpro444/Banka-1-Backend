@@ -13,36 +13,40 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * REST kontroler za interne operacije nad racunima u Banka1 sistemu.
+ * <p>
+ * Ovi endpointi su namenjeni samo inter-servisnoj komunikaciji (npr. od transfer servisa
+ * ili transaction servisa) i zahtevaju SERVICE ulogu za pristup.
+ * <p>
+ * Omogucava:
+ * <ul>
+ *   <li>Obradu financijskih transakcija (transfer novca, transakcije)</li>
+ *   <li>Preuzimanje informacija o racunima radi verifikacije</li>
+ * </ul>
+ */
 @RestController
 @AllArgsConstructor
 @RequestMapping("/internal/accounts")
 @PreAuthorize("hasRole('SERVICE')")
 public class AccountController {
 
+    /** Servis za izvrsavanje transakcija i transfera. */
     private AccountService accountService;
 
     /**
-     * REST kontroler za interne operacije nad racunima u Banka1 sistemu.
+     * Obradi financijsku transakciju na racunu sa debit/credit operacijom.
      * <p>
-     * Ovi endpointi su namenjeni samo inter-servisnoj komunikaciji (npr. od Card servisa
-     * ili Payment servisa) i zahtevaju SERVICE ulogu.
-     * <p>
-     * Omogucava:
-     * <ul>
-     *   <li>Obradu finansijskih transakcija (transfer novca, transakcije)</li>
-     *   <li>Preuzimanje informacija o racunima radi verifikacije</li>
-     * </ul>
-     */
-
-    /**
-     * Obradi finansijsku transakciju na racunu (debit/credit operacija).
-     * <p>
-     * Transakcija se vrsi preko DTO-a koji sadrzi sve potrebne informacije
-     * (racun, iznos, tip operacije, itd.).
+     * Transakcija se vrsi preko PaymentDto koji sadrzi sve potrebne informacije
+     * (brojevi racuna, iznos, provizija, ID klijenta, itd.). Validira oba racuna
+     * i njihove banka-racune pre nego sto prenese sredstva. Proverava da racuni
+     * pripadaju razlicitim vlasnicima.
      *
      * @param jwt JWT token servisa koji prave zahtev
-     * @param paymentDto podaci o transakciji
-     * @return {@link UpdatedBalanceResponseDto} sa azuriranim stanjem racuna
+     * @param paymentDto podaci o transakciji (broj racuna posiljaoca, primaoca, iznos, provizija)
+     * @return {@link UpdatedBalanceResponseDto} sa azuriranim stanjem oba racuna
+     * @throws IllegalArgumentException ako racun ne postoji, nije aktivan, vlasnik je drugaciji ili client ID nedostaje
+     * @throws IllegalStateException ako banka-racun ne postoji ili nije aktivan
      */
     @PostMapping("/transaction")
     public ResponseEntity<UpdatedBalanceResponseDto> transaction(@AuthenticationPrincipal Jwt jwt, @RequestBody @Valid PaymentDto paymentDto) {
@@ -50,14 +54,17 @@ public class AccountController {
     }
 
     /**
-     * Obradi transfer novca izmedju dva racuna.
+     * Obradi transfer novca izmedju dva racuna istog vlasnika.
      * <p>
-     * Ova operacija je slozenija od obicne transakcije jer ukljucuje
-     * ažuriranje dva racuna (izvor i odrediste).
+     * Razlikuje se od {@code /transaction} jer zahteva da oba racuna
+     * pripadaju istom vlasniku. Ažurira stanja oba racuna (izvor i odrediste)
+     * kao i banka-racune za komisije.
      *
      * @param jwt JWT token servisa koji prave zahtev
-     * @param paymentDto podaci o transferu (mora sadrzati i izvor i odrediste)
-     * @return {@link UpdatedBalanceResponseDto} sa azuriranim stanjem
+     * @param paymentDto podaci o transferu (brojevi racuna, iznos, provizija, ID klijenta)
+     * @return {@link UpdatedBalanceResponseDto} sa azuriranim stanjem oba racuna
+     * @throws IllegalArgumentException ako racuni ne pripadaju istom vlasniku ili ne postoje
+     * @throws IllegalStateException ako banka-racun nije aktivan
      */
     @PostMapping("/transfer")
     public ResponseEntity<UpdatedBalanceResponseDto> transfer(@AuthenticationPrincipal Jwt jwt, @RequestBody @Valid PaymentDto paymentDto) {
@@ -65,15 +72,17 @@ public class AccountController {
     }
 
     /**
-     * Preuzima informacije o dva racuna za verifikaciju ili debugging.
+     * Preuzima informacije o dva racuna za verifikaciju pre transakcije.
      * <p>
-     * Koristi se obicno pre izvršavanja transakcije da se proveri
-     * валидност racuna i dostupnih sredstava.
+     * Koristi se od strane drugih servisa (npr. transaction-service) da provjeri
+     * validnost racuna, njihove valute i ID-eve vlasnika pre izvrsavanja transakcije.
+     * Vraća также kontakt informacije vlasnika.
      *
-     * @param jwt JWT token servisa
-     * @param fromBankNumber broj izvornog racuna
-     * @param toBankNumber broj odredisnog racuna
-     * @return {@link InfoResponseDto} sa informacijama o oba racuna
+     * @param jwt JWT token servisa koji prave zahtev
+     * @param fromBankNumber broj izvornog racuna posiljaoca
+     * @param toBankNumber broj odredisnog racuna primaoca
+     * @return {@link InfoResponseDto} sa valutama, ID-evima vlasnika i kontakt informacijama
+     * @throws IllegalArgumentException ako neki od racuna ne postoji ili nije aktivan
      */
     @GetMapping("/info")
     public ResponseEntity<InfoResponseDto> info(@AuthenticationPrincipal Jwt jwt,@RequestParam String fromBankNumber,@RequestParam String toBankNumber)

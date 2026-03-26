@@ -16,10 +16,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 /**
- * JPA entitet koji predstavlja jedan lokalno sacuvan kurs u tabeli {@code exchange_rate}.
- * Svaki red odgovara jednoj valuti za jedan datum snapshot-a.
- * Kombinacija {@code currency_code + rate_date} mora biti jedinstvena da baza
- * ne bi sadrzala duplikate za istu valutu i isti dan.
+ * JPA entity representing a locally stored exchange rate in the {@code exchange_rate} table.
+ * Each row corresponds to one currency for one snapshot date.
+ * The combination of {@code currency_code + rate_date} must be unique to prevent
+ * duplicates for the same currency and date.
  */
 @Entity
 @Table(
@@ -34,44 +34,44 @@ import java.time.LocalDate;
 @Setter
 public class ExchangeRateEntity {
     /**
-     * Tehnicki primarni kljuc reda u bazi.
+     * Technical primary key of the row in the database.
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /**
-     * Troslovni ISO kod valute, na primer {@code EUR} ili {@code USD}.
+     * Three-letter ISO currency code, for example {@code EUR} or {@code USD}.
      */
     @Column(name = "currency_code", nullable = false, length = 3)
     private String currencyCode;
 
     /**
-     * Kurs po kojem banka kupuje datu valutu od klijenta.
+     * Rate at which the bank buys the currency from clients.
      */
     @Column(name = "buying_rate", nullable = false, precision = 19, scale = 8)
     private BigDecimal buyingRate;
 
     /**
-     * Kurs po kojem banka prodaje datu valutu klijentu.
+     * Rate at which the bank sells the currency to clients.
      */
     @Column(name = "selling_rate", nullable = false, precision = 19, scale = 8)
     private BigDecimal sellingRate;
 
     /**
-     * Datum vazenja dnevnog snapshot-a kursa.
+     * Effective date of the daily rate snapshot.
      */
     @Column(name = "rate_date", nullable = false)
     private LocalDate date;
 
     /**
-     * Vreme kada je red prvi put upisan u bazu.
+     * Timestamp when the row was first inserted into the database.
      */
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
     /**
-     * Postavlja vreme kreiranja samo pri prvom upisu reda.
+     * Automatically sets the creation timestamp on first insert.
      */
     @PrePersist
     public void onCreate() {

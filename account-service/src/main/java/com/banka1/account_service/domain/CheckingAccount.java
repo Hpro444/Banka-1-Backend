@@ -10,9 +10,10 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 /**
- * JPA entitet koji predstavlja tekuci bancarski racun denominovan iskljucivo u RSD.
- * Nasledjuje {@link Account} i dodaje specificna polja: vrstu tekuceg racuna
- * i mesecnu naknadu za odrzavanje.
+ * JPA entitet koji predstavlja tekući bankarski račun denominovan iskljucivo u RSD.
+ * <p>
+ * Nasleđuje {@link Account} i dodaje specifična polja: vrstu tekućeg računa
+ * i mesečnu naknadu za održavanje. Svi tekući računi su u RSD valuti.
  */
 @NoArgsConstructor
 @Getter
@@ -21,12 +22,12 @@ import java.math.BigDecimal;
 @DiscriminatorValue("CHECKING")
 public class CheckingAccount extends Account {
 
-    /** Konkretan podtip tekuceg racuna (licni, stedni, poslovni, itd.). */
+    /** Konkretan podtip tekućeg računa (lični, štedni, poslovni, itd.). */
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private AccountConcrete accountConcrete;
 
-    /** Mesecna naknada za odrzavanje racuna u RSD. Vrednost 0 znaci bez naknade. */
+    /** Mesečna naknada za održavanje računa u RSD. Vrednost 0 znači bez naknade. */
     private BigDecimal odrzavanjeRacuna = BigDecimal.ZERO;
 
     /**
@@ -39,25 +40,31 @@ public class CheckingAccount extends Account {
     }
 
     /**
-     * JPA hook koji se poziva pre upisivanja i azuriranja entiteta.
-     * Proverava da li je valuta RSD i da li je tip vlasnistva korektan.
+     * JPA hook koji se poziva pre upisivanja i ažuriranja entiteta.
+     * <p>
+     * Proverava da li je tip računa postavljen, da li je valuta RSD
+     * i da li je tip vlasnistva konzistentan sa prisusstvom firme.
      *
-     * @throws IllegalStateException ako valuta nije RSD ili podaci nisu konzistentni
+     * @throws IllegalStateException ako valuta nije RSD, tip računa nije postavljen
+     *                                  ili podaci nisu konzistentni
      */
     @PrePersist
     @PreUpdate
     private void validate() {
         if (accountConcrete == null) {
-            throw new IllegalStateException("accountConcrete je not null (ovde je teoretski moguce doci) ");
+            throw new IllegalStateException("accountConcrete ne sme biti null");
         }
         validacija(accountConcrete.getAccountOwnershipType());
         if (getCurrency() == null || getCurrency().getOznaka() != CurrencyCode.RSD) {
-            throw new IllegalStateException("Mora RSD");
+            throw new IllegalStateException("Tekuci racun mora biti u RSD");
         }
     }
 
     /**
-     * Postavlja valutu racuna. Baca izuzetak ako valuta nije RSD.
+     * Postavlja valutu računa sa validacijom.
+     * <p>
+     * Baca izuzetak ako valuta nije RSD jer tekući računi mogu biti
+     * samo u domaćoj valuti.
      *
      * @param currency valuta koja se postavlja
      * @throws IllegalArgumentException ako valuta nije RSD
@@ -65,7 +72,7 @@ public class CheckingAccount extends Account {
     @Override
     public void setCurrency(Currency currency) {
         if (currency.getOznaka() != CurrencyCode.RSD)
-            throw new IllegalArgumentException("Mora RSD");
+            throw new IllegalArgumentException("Tekuci racun mora biti u RSD");
         super.setCurrency(currency);
     }
 }

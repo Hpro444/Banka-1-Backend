@@ -15,8 +15,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * JPA entitet koji biljezi svako zaduzenje naknade za odrzavanje racuna.
- * Sluzi kao revizorski trag mesecnih odbitaka koje vrsi {@code MaintenanceFeeService}.
+ * JPA entitet koji bilježi svaki obracun naknade za održavanje računa.
+ * <p>
+ * Služi kao revizorski trag mesečnih odbitaka koje vrši servis za održavanje
+ * računa. Svaki zapis je nepromenjiv nakon kreiranja.
  */
 @Entity
 @Table(
@@ -28,26 +30,26 @@ import java.time.LocalDateTime;
 @Setter
 public class TransactionRecord extends BaseEntity {
 
-    /** Broj klijentskog racuna sa kojeg je naknada skinuta. */
+    /** Broj klijentskog računa sa kojeg je naknada skinuta. */
     @NotBlank
     @Column(nullable = false, updatable = false)
     private String accountNumber;
 
-    /** Broj banka-racuna na koji je naknada kreditovana. */
+    /** Broj banka-računa u istoj valuti na koji je naknada kreditovana. */
     @NotBlank
     @Column(nullable = false, updatable = false)
     private String bankAccountNumber;
 
-    /** Iznos naknada za odrzavanje koji je oduzet. */
+    /** Iznos naknade za održavanje koji je oduzet. */
     @Column(nullable = false, updatable = false)
     private BigDecimal amount;
 
     /**
-     * Kreira zapis o transakciji naknade.
+     * Kreira novi zapis o transakciji naknade za održavanje.
      *
-     * @param accountNumber     broj racuna sa kojeg je naknada skinuta
-     * @param bankAccountNumber broj banka-racuna koji je primio naknadu
-     * @param amount            iznos naknade
+     * @param accountNumber     broj klijentskog računa sa kojeg je naknada skinuta
+     * @param bankAccountNumber broj banka-računa koji je primio naknadu
+     * @param amount            iznos naknade za održavanje
      */
     public TransactionRecord(String accountNumber, String bankAccountNumber, BigDecimal amount) {
         this.accountNumber = accountNumber;
@@ -55,7 +57,7 @@ public class TransactionRecord extends BaseEntity {
         this.amount = amount;
     }
 
-    /** Datum i vreme kreiranja zapisa, automatski se postavlja. */
+    /** Datum i vreme kreiranja zapisa. Automatski se postavlja pri čuvanju. */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

@@ -11,18 +11,22 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 /**
- * DTO za zahtev azuriranja dnevnog i mesecnog limita trosenja.
+ * DTO za zahtev ažuriranja dnevnog i mesečnog limita trošenja na računu.
  * <p>
- * Omogucava vlasnicima racuna da promene svoje dnevne i mesečne limite
- * trosenja (spending limit). Zahteva verifikaciju preko mobilne aplikacije.
+ * Omogućava vlasnicima računa da promene svoje dnevne i mesečne limite trošenja (spending limit).
+ * Zahteva verifikaciju preko mobilne aplikacije i proslađivanje verifikacijskog koda.
+ * Limiteri štite račun od neovlašćenih ili slučajnih transactions.
  * <p>
  * Validacija:
  * <ul>
- *   <li>Oba limitni moraju biti > 0</li>
+ *   <li>Dnevni limit mora biti > 0</li>
+ *   <li>Mesečni limit mora biti > 0</li>
  *   <li>Dnevni limit mora biti <= mesečni limit</li>
- *   <li>Verifikacijski kod mora biti popunjen</li>
- *   <li>Verifikacijska sesija mora biti validna</li>
+ *   <li>Verifikacijski kod mora biti popunjen i validan</li>
+ *   <li>Verifikacijska sesija mora biti validna i aktivna</li>
  * </ul>
+ * <p>
+ * Primer: Postavi dnevni limit na 500.00 i mesečni na 5000.00 sa verifikacionim kodom.
  */
 @AllArgsConstructor
 @NoArgsConstructor

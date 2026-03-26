@@ -1,14 +1,15 @@
 package com.banka1.account_service.domain.enums;
 
 /**
- * Enumeracija koja predstavlja status bankarskog racuna.
+ * Enumeracija koja predstavlja status bankarskog računa ili valute.
  * <p>
- * Statusom se kontrolise da li je racun dostupan za koriscenje ili je deaktiviran.
+ * Statusom se kontroliše da li je entitet dostupan za korišćenje u sistemu.
+ * Može se primenjivati na račune, valute i druge entitete.
  */
 public enum Status {
-    /** Racun je aktivan i dostupan za koriscenje. */
+    /** Entitet je aktivan i dostupan za korišćenje u sistemu. */
     ACTIVE,
 
-    /** Racun je deaktiviran i nije dostupan za nove transakcije. */
+    /** Entitet je deaktiviran i nije dostupan za nove operacije. */
     INACTIVE
 }

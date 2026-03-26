@@ -4,13 +4,13 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * Interni DTO koji kontroler prosledjuje servisnom sloju nakon sto preuzme i
- * validira query parametre kalkulacije.
+ * Internal DTO that the controller passes to the service layer after retrieving
+ * and validating conversion calculation query parameters.
  *
- * @param amount iznos koji se konvertuje
- * @param fromCurrency izvorna valuta
- * @param toCurrency ciljna valuta
- * @param date opcioni datum kursne liste
+ * @param amount amount to be converted
+ * @param fromCurrency source currency code
+ * @param toCurrency target currency code
+ * @param date optional rate list date; if null, uses the latest snapshot
  */
 public record ConversionRequestDto(
         BigDecimal amount,

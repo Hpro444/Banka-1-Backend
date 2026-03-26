@@ -132,9 +132,16 @@ public abstract class Account extends BaseEntity{
 
     /**
      * Validira uskladjenost tipa vlasnistva i prisustva firme.
+     * <p>
+     * Pravila:
+     * <ul>
+     *   <li>Tip vlasnistva mora biti postavljen (nije null)</li>
+     *   <li>BUSINESS računi moraju imati firmu</li>
+     *   <li>PERSONAL računi ne smeju imati firmu</li>
+     * </ul>
      * Poziva se iz {@code @PrePersist}/{@code @PreUpdate} metoda podklasa.
      *
-     * @param ownershipType tip vlasnistva racuna
+     * @param ownershipType tip vlasnistva računa
      * @throws IllegalStateException ako tip vlasnistva nije zadovoljen ili firma nedostaje/ne treba
      */
     protected void validacija(AccountOwnershipType ownershipType) {
