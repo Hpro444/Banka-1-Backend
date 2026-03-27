@@ -56,7 +56,7 @@ class ClientControllerUnitTest {
     @Test
     void editAccountLimitReturnsOkAndDelegates() {
         ClientController controller = new ClientController(clientService);
-        EditAccountLimitDto dto = new EditAccountLimitDto(new BigDecimal("100"), new BigDecimal("1000"), "1234", 1L);
+        EditAccountLimitDto dto = new EditAccountLimitDto(new BigDecimal("100"), new BigDecimal("1000"), 1L);
         when(clientService.editAccountLimit(null, "111000100000000011", dto)).thenReturn("ok");
 
         ResponseEntity<String> response = controller.editAccountLimit(null, "111000100000000011", dto);

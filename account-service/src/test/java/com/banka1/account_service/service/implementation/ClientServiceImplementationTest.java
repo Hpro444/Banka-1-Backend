@@ -5,14 +5,13 @@ import com.banka1.account_service.domain.Currency;
 import com.banka1.account_service.domain.enums.AccountConcrete;
 import com.banka1.account_service.domain.enums.CurrencyCode;
 import com.banka1.account_service.domain.enums.Status;
-import com.banka1.account_service.domain.enums.VerificationStatus;
 import com.banka1.account_service.dto.request.EditAccountLimitDto;
 import com.banka1.account_service.dto.request.EditAccountNameDto;
 import com.banka1.account_service.dto.request.EditStatus;
 import com.banka1.account_service.dto.response.AccountDetailsResponseDto;
 import com.banka1.account_service.dto.response.AccountResponseDto;
 import com.banka1.account_service.dto.response.CardResponseDto;
-import com.banka1.account_service.dto.response.ValidateResponse;
+import com.banka1.account_service.dto.response.VerificationStatusResponse;
 import com.banka1.account_service.exception.BusinessException;
 import com.banka1.account_service.rabbitMQ.RabbitClient;
 import com.banka1.account_service.repository.AccountRepository;
@@ -151,11 +150,12 @@ class ClientServiceImplementationTest {
     void editAccountLimitByIdUpdatesLimits() {
         CheckingAccount ca = activeCheckingAccount();
         when(accountRepository.findById(1L)).thenReturn(Optional.of(ca));
-        ValidateResponse ok = new ValidateResponse(true, VerificationStatus.VERIFIED, 0);
-        when(verificationService.validate(any())).thenReturn(ok);
+        VerificationStatusResponse ok = new VerificationStatusResponse();
+        ok.setStatus("VERIFIED");
+        when(verificationService.getStatus(anyLong())).thenReturn(ok);
 
         EditAccountLimitDto dto = new EditAccountLimitDto(
-                new BigDecimal("500"), new BigDecimal("10000"), "123456", 77L);
+                new BigDecimal("500"), new BigDecimal("10000"), 77L);
 
         String result = service.editAccountLimit(jwt(OWNER_ID), 1L, dto);
 
@@ -170,7 +170,7 @@ class ClientServiceImplementationTest {
         when(accountRepository.findById(1L)).thenReturn(Optional.of(ca));
 
         EditAccountLimitDto dto = new EditAccountLimitDto(
-                new BigDecimal("20000"), new BigDecimal("10000"), "123456", 77L);
+                new BigDecimal("20000"), new BigDecimal("10000"), 77L);
 
         assertThatThrownBy(() -> service.editAccountLimit(jwt(OWNER_ID), 1L, dto))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -181,11 +181,12 @@ class ClientServiceImplementationTest {
     void editAccountLimitThrowsWhenVerificationFails() {
         CheckingAccount ca = activeCheckingAccount();
         when(accountRepository.findById(1L)).thenReturn(Optional.of(ca));
-        ValidateResponse fail = new ValidateResponse(false, VerificationStatus.PENDING, 2);
-        when(verificationService.validate(any())).thenReturn(fail);
+        VerificationStatusResponse fail = new VerificationStatusResponse();
+        fail.setStatus("PENDING");
+        when(verificationService.getStatus(anyLong())).thenReturn(fail);
 
         EditAccountLimitDto dto = new EditAccountLimitDto(
-                new BigDecimal("500"), new BigDecimal("10000"), "wrong", 77L);
+                new BigDecimal("500"), new BigDecimal("10000"), 77L);
 
         assertThatThrownBy(() -> service.editAccountLimit(jwt(OWNER_ID), 1L, dto))
                 .isInstanceOf(BusinessException.class);
@@ -195,10 +196,10 @@ class ClientServiceImplementationTest {
     void editAccountLimitThrowsWhenVerificationReturnsNull() {
         CheckingAccount ca = activeCheckingAccount();
         when(accountRepository.findById(1L)).thenReturn(Optional.of(ca));
-        when(verificationService.validate(any())).thenReturn(null);
+        when(verificationService.getStatus(anyLong())).thenReturn(null);
 
         EditAccountLimitDto dto = new EditAccountLimitDto(
-                new BigDecimal("500"), new BigDecimal("10000"), "x", 77L);
+                new BigDecimal("500"), new BigDecimal("10000"), 77L);
 
         assertThatThrownBy(() -> service.editAccountLimit(jwt(OWNER_ID), 1L, dto))
                 .isInstanceOf(BusinessException.class);
