@@ -7,14 +7,15 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 /**
- * DTO za prikaz lokalno sacuvanog kursa.
- * Ovo je DTO koji vracamo kada neko trazi kurs iz sistema, tj. “kako izgleda jedan sacuvani kurs u odgovoru”.
+ * DTO for displaying a locally stored exchange rate.
+ * This is the DTO returned when a client requests a rate from the system,
+ * representing how a stored rate appears in the response.
  *
- * @param currencyCode troslovni ISO kod valute (npr. RSD)
- * @param buyingRate   kurs po kojem banka kupuje valutu od klijenta
- * @param sellingRate  kurs po kojem banka prodaje valutu klijentu
- * @param date         datum vazenja kursa
- * @param createdAt    vreme prvog cuvanja reda u bazi
+ * @param currencyCode three-letter ISO currency code (e.g., RSD)
+ * @param buyingRate rate at which the bank buys the currency from clients
+ * @param sellingRate rate at which the bank sells the currency to clients
+ * @param date effective date of the exchange rate
+ * @param createdAt timestamp when the record was first stored in the database
  */
 public record ExchangeRateDto(
         String currencyCode,
@@ -25,10 +26,11 @@ public record ExchangeRateDto(
 ) {
 
     /**
-     * Kreira sinteticki zapis za baznu valutu jer RSD ne zahteva eksterni fetch.
+     * Creates a synthetic rate record for the base currency since RSD does not require external fetches.
+     * RSD always has a 1:1 rate relative to itself.
      *
-     * @param date         datum snapshot-a
-     * @return sinteticki DTO sa kursom 1:1
+     * @param date snapshot date
+     * @return synthetic DTO with a 1:1 rate
      */
     public static ExchangeRateDto baseCurrency(LocalDate date) {
         return new ExchangeRateDto(

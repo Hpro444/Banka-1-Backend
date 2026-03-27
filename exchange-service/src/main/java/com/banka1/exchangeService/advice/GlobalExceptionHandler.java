@@ -16,7 +16,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Centralizovan handler gresaka za REST controlled deo exchange-service-a.
+ * Centralized exception handler for the REST controller layer of the exchange-service.
+ * Converts various exception types into standardized JSON error responses with
+ * appropriate HTTP status codes.
  */
 @Slf4j
 @RestControllerAdvice
@@ -24,10 +26,10 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     /**
-     * Mapira biznis izuzetke na odgovarajuci HTTP odgovor.
+     * Handles business logic exceptions and maps them to appropriate HTTP responses.
      *
-     * @param ex domen-specifican izuzetak
-     * @return standardizovan error payload
+     * @param ex domain-specific business exception
+     * @return standardized error response payload
      */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponseDto> handleBusinessException(BusinessException ex) {
@@ -41,10 +43,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Mapira DTO validacione greske na strukturisan odgovor.
+     * Handles request body validation errors and maps them to a structured response.
      *
-     * @param ex validacioni izuzetak
-     * @return payload sa poljima koja nisu prosla validaciju
+     * @param ex validation exception from request body
+     * @return payload with detailed field validation errors
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponseDto> handleValidation(MethodArgumentNotValidException ex) {
@@ -53,10 +55,11 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Mapira query/model bind validacione greske na strukturisan odgovor.
+     * Handles query parameter and model binding validation errors
+     * and maps them to a structured response.
      *
-     * @param ex validacioni izuzetak
-     * @return payload sa poljima koja nisu prosla validaciju
+     * @param ex binding exception from query parameters or model binding
+     * @return payload with detailed field validation errors
      */
     @ExceptionHandler(BindException.class)
     public ResponseEntity<ErrorResponseDto> handleBindException(BindException ex) {
@@ -64,6 +67,12 @@ public class GlobalExceptionHandler {
                 .body(buildValidationErrorResponse(ex.getBindingResult().getFieldErrors()));
     }
 
+    /**
+     * Builds a validation error response from field validation errors.
+     *
+     * @param fieldErrors validation field errors
+     * @return error response with field-level details
+     */
     private ErrorResponseDto buildValidationErrorResponse(Iterable<FieldError> fieldErrors) {
         Map<String, String> validationErrors = new HashMap<>();
         for (FieldError fieldError : fieldErrors) {
@@ -79,10 +88,11 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Hvata neocekivane greske i vraca genericki 500 odgovor.
+     * Catches unexpected exceptions and returns a generic 500 server error response.
+     * Logs the full stack trace for diagnostic purposes.
      *
-     * @param ex neocekivani izuzetak
-     * @return genericki error payload
+     * @param ex unexpected exception
+     * @return generic error response payload
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDto> handleUnexpectedException(Exception ex) {

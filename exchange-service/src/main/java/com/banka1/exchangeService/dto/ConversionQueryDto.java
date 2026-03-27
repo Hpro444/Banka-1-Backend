@@ -13,21 +13,27 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * DTO koji mapira query parametre endpoint-a
+ * DTO that maps query parameters from the endpoint
  * {@code GET /calculate?fromCurrency=...&toCurrency=...&amount=...}.
- * Spring MVC automatski binduje vrednosti iz URL query string-a u ovo polje
- * i zatim pokrece Bean Validation anotacije definisane nad poljima.
+ * Spring MVC automatically binds values from the URL query string to these fields
+ * and then invokes Bean Validation annotations defined on them.
  */
 @Getter
 @Setter
 public class ConversionQueryDto {
 
+    /**
+     * Regular expression pattern for validating supported currency codes.
+     */
     private static final String SUPPORTED_CURRENCY_REGEX = "^(?i)(RSD|EUR|CHF|USD|GBP|JPY|CAD|AUD)$";
+    /**
+     * Validation error message for unsupported currencies.
+     */
     private static final String SUPPORTED_CURRENCY_MESSAGE =
             "Supported currencies are RSD, EUR, CHF, USD, GBP, JPY, CAD and AUD.";
 
     /**
-     * Izvorna valuta iz koje korisnik konvertuje iznos.
+     * Source currency from which the user converts the amount.
      */
     @NotBlank(message = "fromCurrency is required.")
     @Pattern(regexp = SUPPORTED_CURRENCY_REGEX, message = SUPPORTED_CURRENCY_MESSAGE)
@@ -35,7 +41,7 @@ public class ConversionQueryDto {
     private String fromCurrency;
 
     /**
-     * Ciljna valuta u koju se obracunava ekvivalent.
+     * Target currency to which the amount is converted.
      */
     @NotBlank(message = "toCurrency is required.")
     @Pattern(regexp = SUPPORTED_CURRENCY_REGEX, message = SUPPORTED_CURRENCY_MESSAGE)
@@ -43,7 +49,7 @@ public class ConversionQueryDto {
     private String toCurrency;
 
     /**
-     * Iznos koji treba preracunati.
+     * Amount to be converted.
      */
     @NotNull(message = "amount is required.")
     @DecimalMin(value = "0.00000001", message = "amount must be greater than 0.")
@@ -51,8 +57,8 @@ public class ConversionQueryDto {
     private BigDecimal amount;
 
     /**
-     * Opcioni datum kursne liste.
-     * Ako nije zadat, koristi se poslednji raspolozivi lokalni snapshot.
+     * Optional rate list date.
+     * If not provided, the latest available local snapshot is used.
      */
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     @Schema(example = "2026-03-22")

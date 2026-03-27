@@ -88,6 +88,123 @@ INSERT INTO sifra_delatnosti_table (sifra, grana) VALUES
                                                       ('29.1', 'Proizvodnja motornih vozila');
 
 -- =========================
+-- BANK INTERNAL ACCOUNTS
+-- =========================
+
+-- RSD bank account -> CHECKING
+INSERT INTO account_table (
+    version,
+    account_type,
+    broj_racuna,
+    ime_vlasnika_racuna,
+    prezime_vlasnika_racuna,
+    naziv_racuna,
+    vlasnik,
+    zaposlen,
+    stanje,
+    raspolozivo_stanje,
+    datum_i_vreme_kreiranja,
+    datum_isteka,
+    currency_id,
+    status,
+    dnevni_limit,
+    mesecni_limit,
+    dnevna_potrosnja,
+    mesecna_potrosnja,
+    company_id,
+    account_concrete,
+    odrzavanje_racuna,
+    account_ownership_type
+)
+SELECT
+    0,
+    'CHECKING',
+    '1110001000000000012',
+    'Banka',
+    'Banka',
+    'Bank RSD Account',
+    -1,
+    -1,
+    1000000000.00,
+    1000000000.00,
+    NOW(),
+    NULL,
+    c.id,
+    'ACTIVE',
+    999999999.99,
+    999999999.99,
+    0.00,
+    0.00,
+    NULL,
+    'STANDARDNI',
+    0.00,
+    NULL
+FROM currency_table c
+WHERE c.oznaka = 'RSD';
+
+
+-- FX bank accounts -> all non-RSD currencies
+INSERT INTO account_table (
+    version,
+    account_type,
+    broj_racuna,
+    ime_vlasnika_racuna,
+    prezime_vlasnika_racuna,
+    naziv_racuna,
+    vlasnik,
+    zaposlen,
+    stanje,
+    raspolozivo_stanje,
+    datum_i_vreme_kreiranja,
+    datum_isteka,
+    currency_id,
+    status,
+    dnevni_limit,
+    mesecni_limit,
+    dnevna_potrosnja,
+    mesecna_potrosnja,
+    company_id,
+    account_concrete,
+    odrzavanje_racuna,
+    account_ownership_type
+)
+SELECT
+    0,
+    'FX',
+    CASE c.oznaka
+        WHEN 'EUR' THEN '1110001000000000021'
+        WHEN 'CHF' THEN '1110001000000000022'
+        WHEN 'USD' THEN '1110001000000000023'
+        WHEN 'GBP' THEN '1110001000000000024'
+        WHEN 'JPY' THEN '1110001000000000025'
+        WHEN 'CAD' THEN '1110001000000000026'
+        WHEN 'AUD' THEN '1110001000000000027'
+        END,
+    'Banka',
+    'Banka',
+    'Bank ' || c.oznaka || ' Account',
+    -1,
+    -1,
+    1000000000.00,
+    1000000000.00,
+    NOW(),
+    NULL,
+    c.id,
+    'ACTIVE',
+    999999999.99,
+    999999999.99,
+    0.00,
+    0.00,
+    NULL,
+    NULL,
+    NULL,
+    'PERSONAL'
+FROM currency_table c
+WHERE c.oznaka IN ('EUR', 'CHF', 'USD', 'GBP', 'JPY', 'CAD', 'AUD');
+
+
+
+-- =========================
 -- SIFRA DELATNOSTI SEKTORI
 -- =========================
 INSERT INTO sifra_delatnosti_sektori (sifra_delatnosti_id, sektor)

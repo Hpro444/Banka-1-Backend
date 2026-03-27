@@ -17,18 +17,35 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Centralizovani handler grešaka za sve REST kontrolere verification servisa.
- * Mapira očekivane i neočekivane izuzetke na standardizovane HTTP odgovore sa {@link ErrorResponseDto} telom.
+ * Centralized exception handler for all REST controllers in the verification service.
+ *
+ * Implements Spring's {@link org.springframework.web.bind.annotation.RestControllerAdvice}
+ * to intercept exceptions thrown by controller methods and convert them into standardized
+ * HTTP responses with {@link ErrorResponseDto} bodies. Handles both expected (business)
+ * exceptions and unexpected runtime exceptions.
+ *
+ * Exception handling strategy:
+ * <ul>
+ *   <li>Business exceptions → HTTP status and error code from {@link ErrorCode} enum</li>
+ *   <li>Validation exceptions → HTTP 400 Bad Request with field-level errors</li>
+ *   <li>Data integrity violations → HTTP 409 Conflict</li>
+ *   <li>Access denied → HTTP 403 Forbidden</li>
+ *   <li>Messaging failures → HTTP 500 Internal Server Error</li>
+ *   <li>Unexpected exceptions → HTTP 500 with generic error message</li>
+ * </ul>
  */
 @RestControllerAdvice
 @Component("verificationServiceGlobalExceptionHandler")
 public class GlobalExceptionHandler {
 
     /**
-     * Obradjuje poslovne greške aplikacije.
+     * Handles application business exceptions.
      *
-     * @param ex izuzetak nastao pri poslovnoj grešci
-     * @return HTTP odgovor na osnovu ErrorCode-a
+     * Extracts the error code, title, and details from the {@link BusinessException}
+     * and returns them with the appropriate HTTP status.
+     *
+     * @param ex the business exception thrown by service logic
+     * @return HTTP response with error code and details, status determined by ErrorCode
      */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponseDto> handleBusinessException(BusinessException ex) {
@@ -41,10 +58,13 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Obradjuje greske narusavanja ogranicenja baze podataka (npr. duplikat unique kolone).
+     * Handles database integrity constraint violations.
      *
-     * @param ex izuzetak nastao pri krsenju integrity ogranicenja
-     * @return HTTP 409 Conflict odgovor
+     * Catches violations such as unique constraint conflicts, foreign key violations,
+     * and other database-level integrity errors. Returns a generic conflict response.
+     *
+     * @param ex the exception thrown by Spring Data when a constraint is violated
+     * @return HTTP 409 Conflict response
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponseDto> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
@@ -57,10 +77,13 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Obradjuje greske neispravnih argumenata koji ne prolaze programsku validaciju.
+     * Handles programmatic validation failures.
      *
-     * @param ex izuzetak nastao pri detektovanju neispravnog argumenta
-     * @return HTTP 400 Bad Request odgovor
+     * Catches exceptions thrown by explicit validation checks in code (e.g., manual
+     * parameter validation). Returns a standardized bad request response.
+     *
+     * @param ex the exception containing validation error details
+     * @return HTTP 400 Bad Request response
      */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponseDto> handleIllegalArgument(IllegalArgumentException ex) {
@@ -73,10 +96,14 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Obradjuje greske validacije DTO zahteva i vraca listu neispravnih polja.
+     * Handles JSR-380 bean validation failures.
      *
-     * @param ex izuzetak nastao pri validaciji ulaznih podataka
-     * @return HTTP 400 odgovor sa mapom validacionih gresaka po poljima
+     * Catches {@link org.springframework.web.bind.MethodArgumentNotValidException}
+     * thrown by Spring when request DTOs fail validation annotations (@NotNull, @Email, etc.).
+     * Extracts field-level errors and returns them in a structured map.
+     *
+     * @param ex the exception containing field validation errors
+     * @return HTTP 400 Bad Request response with a map of field errors
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponseDto> handleValidation(MethodArgumentNotValidException ex) {
@@ -94,10 +121,14 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Obradjuje greske komunikacije sa RabbitMQ brokerom.
+     * Handles RabbitMQ message broker failures.
      *
-     * @param ex AMQP izuzetak nastao pri slanju poruke
-     * @return HTTP 500 Internal Server Error odgovor
+     * Catches AMQP exceptions that occur when publishing verification events
+     * (e.g., OTP codes for email delivery). Returns a generic internal server error
+     * without exposing broker details to the client.
+     *
+     * @param ex the AMQP exception thrown during message publishing
+     * @return HTTP 500 Internal Server Error response
      */
     @ExceptionHandler(AmqpException.class)
     public ResponseEntity<ErrorResponseDto> handleAmqpException(AmqpException ex) {
@@ -110,11 +141,15 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Obradjuje greske nedozvoljenog pristupa.
-     * Sprecava da @PreAuthorize odbijanja budu uhvacena generickim 500 handlerom.
+     * Handles access denial exceptions.
      *
-     * @param ex izuzetak nedozvoljenog pristupa
-     * @return HTTP 403 Forbidden odgovor
+     * Catches {@link org.springframework.security.access.AccessDeniedException}
+     * thrown by Spring Security when @PreAuthorize checks fail or when a user
+     * lacks required roles. Returns a generic forbidden response without exposing
+     * authorization logic to the client.
+     *
+     * @param ex the access denied exception
+     * @return HTTP 403 Forbidden response
      */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponseDto> handleAccessDenied(AccessDeniedException ex) {
@@ -127,10 +162,14 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Obradjuje neocekivane izuzetke i vraca genericki odgovor za internu gresku.
+     * Handles unexpected exceptions as a fallback.
      *
-     * @param ex neocekivani izuzetak
-     * @return HTTP 500 odgovor sa standardizovanim telom greske
+     * Catches any {@link Exception} not handled by more specific handlers.
+     * Returns a generic internal server error response without exposing the
+     * exception stack trace or details to the client for security reasons.
+     *
+     * @param ex the unexpected exception
+     * @return HTTP 500 Internal Server Error response
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDto> handleUnexpectedException(Exception ex) {

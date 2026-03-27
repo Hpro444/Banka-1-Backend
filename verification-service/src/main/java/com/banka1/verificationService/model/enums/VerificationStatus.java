@@ -1,16 +1,37 @@
 package com.banka1.verificationService.model.enums;
 
 /**
- * Enumeracija koja predstavlja moguće stanja sesije verifikacije.
- * Prati životni ciklus od kreiranja do završetka ili neuspjeha.
+ * Enumeration representing the possible states of a verification session.
+ *
+ * Tracks the lifecycle of a session from creation through completion or failure.
+ * A session progresses through these states as the user interacts with the verification system.
  */
 public enum VerificationStatus {
-    /** Sesija kreirana i čeka validaciju koda. */
+    /**
+     * Session has been created and is awaiting code validation.
+     * The user has received the OTP code via email and has 5 minutes to submit it.
+     * This is the initial state of every new verification session.
+     */
     PENDING,
-    /** Kod uspješno validiran i sesija završena. */
+
+    /**
+     * The submitted code was correctly validated and the session is now complete.
+     * No further validation attempts are allowed; the operation may proceed.
+     * This is a terminal, successful state.
+     */
     VERIFIED,
-    /** Sesija istekla zbog vremenskog ograničenja (5 minuta). */
+
+    /**
+     * The session has expired due to exceeding the time limit (default 5 minutes).
+     * The user cannot validate the code anymore and must request a new verification session.
+     * This is a terminal, unsuccessful state.
+     */
     EXPIRED,
-    /** Sesija otkazana zbog previše neuspjelih pokušaja (3+). */
+
+    /**
+     * The session has been cancelled due to too many failed validation attempts (3 or more).
+     * The user cannot validate the code anymore and must request a new verification session.
+     * This is a terminal, unsuccessful state.
+     */
     CANCELLED
 }

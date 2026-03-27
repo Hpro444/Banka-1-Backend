@@ -26,58 +26,61 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Implementacija servisa za rad sa dnevnim kursevima i klijentskim konverzijama.
+ * Implementation of the exchange rate service for managing daily rates and client conversions.
+ * Handles fetching rates from external providers, storing them locally, retrieving rates,
+ * and converting amounts between currencies using RSD as the base currency.
  */
 @Slf4j
 @Service
 public class ExchangeRateServiceImpl implements ExchangeRateService {
 
     /**
-     * Broj decimala koji se koristi pri deljenju za konverzije.
+     * Number of decimal places used for division in conversion calculations.
      */
     private static final int CALCULATION_SCALE = 8;
     /**
-     * Broj decimala za prikaz provizije.
+     * Number of decimal places for displaying commission amounts.
      */
     private static final int COMMISSION_SCALE = 2;
     /**
-     * Broj decimala koji se koristi pri cuvanju kursa.
+     * Number of decimal places used when storing exchange rates in the database.
      */
     private static final int RATE_SCALE = 8;
     /**
-     * Konstanta 100 za pretvaranje procenta marze u decimalni faktor.
+     * Constant 100 for converting margin percentage to decimal factor.
      */
     private static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);
 
     /**
-     * Klijent za spoljasnji fetch deviznih kurseva.
+     * Client for fetching exchange rates from external provider (Twelve Data).
      */
     private final TwelveDataClient twelveDataClient;
     /**
-     * Konfiguracija pravila za fetch i marzu.
+     * Configuration properties for fetch rules and margin percentage.
      */
     private final ExchangeRateProperties exchangeRateProperties;
 
     /**
-     * Repozitorijum za lokalno skladistenje i citanje snapshot-a.
+     * Repository for local storage and retrieval of rate snapshots.
      */
     private final ExchangeRateRepository exchangeRateRepository;
     /**
-     * Transakciona komponenta za atomsku zamenu celog snapshot-a.
+     * Service for atomic replacement of entire rate snapshots.
      */
     private final ExchangeRateSnapshotPersistenceService snapshotPersistenceService;
 
     /**
-     * Sat koji se koristi za odredjivanje ciljnog fallback datuma.
+     * Clock used to determine the target fallback date when fetch fails.
      */
     private final Clock clock;
 
     /**
-     * Kreira servis sa podrazumevanim UTC satom za produkcionu upotrebu.
+     * Creates a service instance with the default UTC clock for production use.
      *
-     * @param twelveDataClient       klijent za eksterni fetch kurseva
-     * @param exchangeRateProperties konfiguracija marze i fetch pravila
-     * @param exchangeRateRepository repozitorijum lokalnih kurseva
+     * @param twelveDataClient              client for external rate fetching
+     * @param exchangeRateProperties        configuration for margin and fetch rules
+     * @param exchangeRateRepository        repository for local rates
+     * @param snapshotPersistenceService    service for atomic snapshot persistence
      */
     @Autowired
     public ExchangeRateServiceImpl(
@@ -96,12 +99,13 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
     }
 
     /**
-     * Kreira servis sa eksplicitnim satom, korisno za testove i deterministicki fallback datum.
+     * Creates a service instance with an explicit clock, useful for tests and deterministic fallback dates.
      *
-     * @param twelveDataClient       klijent za eksterni fetch kurseva
-     * @param exchangeRateProperties konfiguracija marze i fetch pravila
-     * @param exchangeRateRepository repozitorijum lokalnih kurseva
-     * @param clock                  izvor vremena za fallback logiku
+     * @param twelveDataClient              client for external rate fetching
+     * @param exchangeRateProperties        configuration for margin and fetch rules
+     * @param exchangeRateRepository        repository for local rates
+     * @param snapshotPersistenceService    service for atomic snapshot persistence
+     * @param clock                         time source for fallback logic
      */
     ExchangeRateServiceImpl(
             TwelveDataClient twelveDataClient,
@@ -220,10 +224,10 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
     }
 
     /**
-     * Dohvata kurs za jednu podrzanu valutu prema baznoj RSD valuti.
+     * Fetches the exchange rate for one supported currency relative to the base RSD currency.
      *
-     * @param currencyCode troslovni ISO kod izvora
-     * @return parsiran odgovor Twelve Data providera
+     * @param currencyCode three-letter ISO code of the source currency
+     * @return parsed response from the Twelve Data provider
      */
     private TwelveDataRateResponse fetchRate(String currencyCode) {
         return twelveDataClient.fetchExchangeRate(
@@ -233,10 +237,10 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
     }
 
     /**
-     * Pretvara provider odgovor u potpuno pripremljen red lokalnog snapshot-a.
+     * Converts a provider response into a fully prepared row for the local snapshot.
      *
-     * @param response parsiran odgovor spoljnog providera
-     * @return pripremljen red za atomsko persistiranje
+     * @param response parsed response from the external provider
+     * @return prepared rate ready for atomic persistence
      */
     private ExchangeRateSnapshotPersistenceService.PreparedExchangeRate toPreparedRate(TwelveDataRateResponse response) {
         return new ExchangeRateSnapshotPersistenceService.PreparedExchangeRate(
@@ -247,13 +251,13 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
     }
 
     /**
-     * Racuna kupovni kurs banke iz market kursa i konfigurisanog procenta marze.
-     * Formula je {@code buyingRate = marketRate * (1 - margin/100)}.
-     * Na primer, za market kurs {@code 117.40} i marzu {@code 1.0},
-     * banka kupuje po {@code 117.40 * 0.99 = 116.22600000}.
+     * Calculates the bank's buying rate from the market rate and configured margin percentage.
+     * Formula: {@code buyingRate = marketRate * (1 - margin/100)}.
+     * For example, with market rate {@code 117.40} and margin {@code 1.0},
+     * the bank buys at {@code 117.40 * 0.99 = 116.22600000}.
      *
-     * @param marketRate market kurs dobijen od providera
-     * @return bankin kupovni kurs za cuvanje u snapshot-u
+     * @param marketRate market rate obtained from the provider
+     * @return bank's buying rate for storage in the snapshot
      */
     private BigDecimal calculateBuyingRate(BigDecimal marketRate) {
         BigDecimal marginFactor = resolveMarginFactor();
@@ -262,13 +266,13 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
     }
 
     /**
-     * Racuna prodajni kurs banke iz market kursa i konfigurisanog procenta marze.
-     * Formula je {@code sellingRate = marketRate * (1 + margin/100)}.
-     * Na primer, za market kurs {@code 117.40} i marzu {@code 1.0},
-     * banka prodaje po {@code 117.40 * 1.01 = 118.57400000}.
+     * Calculates the bank's selling rate from the market rate and configured margin percentage.
+     * Formula: {@code sellingRate = marketRate * (1 + margin/100)}.
+     * For example, with market rate {@code 117.40} and margin {@code 1.0},
+     * the bank sells at {@code 117.40 * 1.01 = 118.57400000}.
      *
-     * @param marketRate market kurs dobijen od providera
-     * @return bankin prodajni kurs za cuvanje u snapshot-u
+     * @param marketRate market rate obtained from the provider
+     * @return bank's selling rate for storage in the snapshot
      */
     private BigDecimal calculateSellingRate(BigDecimal marketRate) {
         BigDecimal marginFactor = resolveMarginFactor();
@@ -277,10 +281,10 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
     }
 
     /**
-     * Pretvara procentualnu marzu iz konfiguracije u decimalni faktor.
-     * Na primer, {@code 1.0} postaje {@code 0.01}.
+     * Converts the percentage margin from configuration into a decimal factor.
+     * For example, {@code 1.0} becomes {@code 0.01}.
      *
-     * @return decimalni faktor marze pogodan za matematicke proracune
+     * @return decimal margin factor suitable for mathematical calculations
      */
     private BigDecimal resolveMarginFactor() {
         return exchangeRateProperties.marginPercentage()
@@ -288,9 +292,9 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
     }
 
     /**
-     * Pretvara procentualnu proviziju u decimalni faktor za obracun.
+     * Converts the percentage commission from configuration into a decimal factor for calculation.
      *
-     * @return decimalni faktor provizije
+     * @return decimal commission factor
      */
     private BigDecimal resolveCommissionFactor() {
         return exchangeRateProperties.commissionPercentage()
@@ -298,10 +302,10 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
     }
 
     /**
-     * Aktivira fallback na poslednji lokalni snapshot kada eksterni fetch ne uspe.
+     * Activates fallback to the latest local snapshot when external fetch fails.
      *
-     * @param rootCause originalna greska fetch operacije
-     * @return rezultat sa fallback snapshot-om za ciljni datum
+     * @param rootCause original error from the fetch operation
+     * @return result with fallback snapshot for the target date
      */
     private ExchangeRateFetchResponseDto fallbackToLatestSnapshot(BusinessException rootCause) {
         LocalDate targetDate = LocalDate.now(clock);
@@ -335,10 +339,10 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
     }
 
     /**
-     * Pretvara lokalno sacuvan kurs u pripremljen red za novi datum snapshot-a.
+     * Converts a locally stored rate into a prepared row for a new snapshot date.
      *
-     * @param previousRate prethodno sacuvan kurs
-     * @return pripremljen red za atomsko persistiranje fallback snapshot-a
+     * @param previousRate previously stored exchange rate
+     * @return prepared rate ready for atomic persistence in fallback snapshot
      */
     private ExchangeRateSnapshotPersistenceService.PreparedExchangeRate toPreparedRate(ExchangeRateEntity previousRate) {
         return new ExchangeRateSnapshotPersistenceService.PreparedExchangeRate(
@@ -349,10 +353,10 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
     }
 
     /**
-     * Zahteva da svi fetched provider odgovori pripadaju istom datumskom snapshot-u.
+     * Requires that all fetched provider responses belong to the same snapshot date.
      *
-     * @param fetchedRates potpuni skup fetched kurseva
-     * @return jedinstveni datum snapshot-a koji ce biti lokalno sacuvan
+     * @param fetchedRates complete set of fetched rates
+     * @return unique snapshot date that will be stored locally
      */
     private LocalDate resolveFetchedSnapshotDate(List<TwelveDataRateResponse> fetchedRates) {
         if (fetchedRates.isEmpty()) {
@@ -376,10 +380,10 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
     }
 
     /**
-     * Odredjuje datum snapshot-a za citanje kurseva.
+     * Determines the snapshot date for reading exchange rates.
      *
-     * @param date eksplicitno trazeni datum ili {@code null}
-     * @return trazeni datum ili poslednji raspolozivi lokalni snapshot
+     * @param date explicitly requested date or {@code null}
+     * @return requested date or the latest available local snapshot
      */
     private LocalDate resolveSnapshotDate(LocalDate date) {
         if (date != null) {
@@ -393,11 +397,11 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
     }
 
     /**
-     * Pronalazi kurs za konkretnu valutu i datum.
+     * Finds the exchange rate for a specific currency and date.
      *
-     * @param currency valuta koja se trazi
-     * @param date     datum snapshot-a
-     * @return lokalno sacuvan entitet kursa
+     * @param currency currency to search for
+     * @param date snapshot date
+     * @return locally stored exchange rate entity
      */
     private ExchangeRateEntity findRate(SupportedCurrency currency, LocalDate date) {
         return exchangeRateRepository.findByCurrencyCodeAndDate(currency.name(), date)
@@ -408,10 +412,10 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
     }
 
     /**
-     * Mapira entitet baze u javni DTO odgovor.
+     * Maps a database entity to a public DTO response.
      *
-     * @param entity lokalno sacuvan entitet kursa
-     * @return DTO za REST/API sloj
+     * @param entity locally stored exchange rate entity
+     * @return DTO for the REST/API layer
      */
     private ExchangeRateDto toDto(ExchangeRateEntity entity) {
         return new ExchangeRateDto(

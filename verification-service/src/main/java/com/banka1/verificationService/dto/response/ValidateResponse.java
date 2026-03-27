@@ -5,27 +5,41 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * DTO za odgovor nakon validacije verifikacionog koda.
- * Ukazuje da li je kod bio validan, trenutni status sesije i preostale pokušaje.
+ * Data Transfer Object (DTO) for the response after validating a verification code.
+ *
+ * Provides comprehensive feedback on the validation result, including whether the code
+ * was correct, the current session state, and the number of remaining validation attempts.
  */
 @Getter
 @Setter
 public class ValidateResponse {
-    /** Da li dati kod odgovara sačuvanom kodu. */
+    /**
+     * Whether the provided code matched the stored hash.
+     * true if the code was correct; false otherwise.
+     */
     private boolean valid;
 
-    /** Trenutni status sesije verifikacije nakon validacije. */
+    /**
+     * The current status of the verification session after validation.
+     * Indicates whether the session is still PENDING, VERIFIED, CANCELLED, or EXPIRED.
+     *
+     * @see VerificationStatus
+     */
     private VerificationStatus status;
 
-    /** Broj preostalih pokušaja pre otkazivanja (0 ako je verifikovano ili otkazano). */
+    /**
+     * Number of validation attempts remaining before session cancellation.
+     * Decrements with each failed attempt. When this reaches 0, the session is cancelled.
+     * Returns 0 if the session is already VERIFIED, CANCELLED, or EXPIRED.
+     */
     private int remainingAttempts;
 
     /**
-     * Konstruktor za kreiranje odgovora validacije.
+     * Constructs a validation response with the outcome details.
      *
-     * @param valid true ako je kod bio tačan
-     * @param status trenutni status sesije
-     * @param remainingAttempts pokušaji preostali pre otkazivanja
+     * @param valid true if the code matched the stored hash; false for incorrect codes
+     * @param status the current state of the verification session
+     * @param remainingAttempts the number of attempts left before automatic cancellation
      */
     public ValidateResponse(boolean valid, VerificationStatus status, int remainingAttempts) {
         this.valid = valid;

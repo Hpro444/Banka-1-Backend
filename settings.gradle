@@ -10,6 +10,8 @@ include 'security-lib'
 include 'employee-service'
 include 'client-service'
 include 'account-service'
+include 'card-service'
+include 'transfer-service'
 include 'exchange-service'
 include 'verification-service'
 

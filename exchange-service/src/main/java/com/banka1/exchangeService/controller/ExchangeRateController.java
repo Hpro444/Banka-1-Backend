@@ -26,30 +26,32 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * REST kontroler za rad sa lokalno sacuvanim dnevnim kursevima i kalkulacijom
- * valutne ekvivalencije.
- * Javne rute u samom servisu su bez gateway prefiksa:
- * {@code /rates}, {@code /rates/{currencyCode}} i {@code /calculate}.
- * Kada zahtev prolazi kroz API gateway, isti endpointi su dostupni pod
- * prefiksom {@code /api/exchange}.
+ * REST controller for managing locally stored daily exchange rates and currency conversions.
+ * Public routes within the service have no gateway prefix: {@code /rates},
+ * {@code /rates/{currencyCode}}, and {@code /calculate}.
+ * When requests pass through the API Gateway, endpoints are accessible under
+ * the prefix {@code /api/exchange}.
  */
 @RestController
 @RequiredArgsConstructor
 @Tag(name = "Exchange Rates", description = "Exchange rate storage and conversion endpoints")
 public class ExchangeRateController {
 
+    /**
+     * Service for exchange rate management and currency conversions.
+     */
     private final ExchangeRateService exchangeRateService;
 
     /**
-     * Rucno pokrece fetch dnevnih kurseva za sve podrzane strane valute i
-     * cuva ih kao lokalni snapshot.
-     * Ovaj endpoint koristi istu logiku kao i zakazani dnevni cron posao.
+     * Manually triggers fetching of daily exchange rates for all supported foreign currencies
+     * and stores them as a local snapshot. This endpoint uses the same logic as the
+     * scheduled daily cron job. Requires ADMIN role.
      *
-     * @return rezultat fetch operacije sa brojem obradjenih valuta i listom
-     *         sacuvanih kurseva
+     * @return result of the fetch operation including the number of processed currencies
+     *         and the list of stored rates
      */
     @PostMapping("/rates/fetch")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SERVICE')")
     @Operation(
             summary = "Fetch and store daily exchange rates",
             responses = @ApiResponse(
@@ -63,13 +65,14 @@ public class ExchangeRateController {
     }
 
     /**
-     * Vraca kursnu listu za trazeni datum ili, ako datum nije prosledjen,
-     * poslednji dostupni lokalni snapshot.
+     * Retrieves the list of exchange rates for the requested date, or the most recently
+     * available local snapshot if no date is provided.
      *
-     * @param date opcioni datum snapshot-a
-     * @return lista dnevnih kurseva sortirana po kodu valute
+     * @param date optional snapshot date; if null, returns the latest available snapshot
+     * @return list of daily exchange rates sorted by currency code
      */
     @GetMapping("/rates")
+    @PreAuthorize("hasAnyRole('ADMIN','SERVICE')")
     @Operation(
             summary = "Get stored exchange rates",
             responses = @ApiResponse(
@@ -86,15 +89,17 @@ public class ExchangeRateController {
     }
 
     /**
-     * Vraca kurs za jednu konkretnu valutu za trazeni datum ili za poslednji
-     * lokalno raspolozivi snapshot ako datum nije zadat.
+     * Retrieves the exchange rate for a single specific currency for the requested date,
+     * or the most recently available local snapshot if no date is provided.
      *
-     * @param currencyCode troslovni ISO kod valute, na primer {@code EUR}
-     * @param date opcioni datum snapshot-a
-     * @return jedan zapis kursa za trazenu valutu
+     * @param currencyCode three-letter ISO currency code, for example {@code EUR}
+     * @param date optional snapshot date; if null, returns the latest available snapshot
+     * @return exchange rate record for the requested currency
      */
     @GetMapping("/rates/{currencyCode}")
     @Operation(summary = "Get a single exchange rate")
+    @PreAuthorize("hasAnyRole('ADMIN','SERVICE')")
+
     public ExchangeRateDto getRate(
             @PathVariable String currencyCode,
             @RequestParam(required = false)
@@ -104,19 +109,18 @@ public class ExchangeRateController {
     }
 
     /**
-     * Racuna ekvivalent iznosa iz jedne valute u drugu.
-     * Konverzija uvek ide preko {@code RSD} kao bazne valute, a za obracun se
-     * koristi prodajni kurs ne-RSD valute prema pravilima zadatka.
-     * Ulazni podaci se preuzimaju iz query parametara URL-a, na primer:
+     * Calculates the equivalent of an amount from one currency to another.
+     * Conversion always goes through RSD as the base currency, using the selling rate
+     * for non-RSD currencies according to business rules.
+     * Input parameters are taken from URL query parameters, for example:
      * {@code /calculate?fromCurrency=EUR&toCurrency=USD&amount=100}.
      *
-     * @param request query DTO koji Spring automatski popunjava iz URL query
-     *                parametara
-     * @return rezultat kalkulacije sa izlaznim iznosom, efektivnim kursom,
-     *         provizijom i datumom kursne liste
+     * @param request query DTO that Spring automatically populates from URL query parameters
+     * @return conversion result including output amount, effective rate, commission, and rate date
      */
     @GetMapping("/calculate")
     @Operation(summary = "Calculate currency equivalence via RSD base")
+    @PreAuthorize("hasAnyRole('ADMIN','SERVICE')")
     public ConversionResponseDto calculate(@Valid ConversionQueryDto request) {
         return exchangeRateService.convert(new ConversionRequestDto(
                 request.getAmount(),

@@ -9,41 +9,45 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Glavni servis za rad sa deviznim kursevima i konverzijama.
+ * Service interface for managing exchange rates and currency conversions.
+ * Provides operations for fetching daily rates from external providers,
+ * retrieving locally stored rates, and converting between currencies.
  */
 public interface ExchangeRateService {
 
     /**
-     * Dohvata dnevne kurseve sa eksternog API-ja i cuva ih lokalno.
-     * Scheduler zove ovo svaki dan u 08.00h
-     * Ako eksterni fetch padne, koristi poslednji lokalni snapshot kao fallback za novi dnevni unos.
+     * Fetches daily exchange rates from an external API and stores them locally.
+     * Typically invoked by a scheduler daily at 08:00 UTC.
+     * If the external fetch fails, uses the latest local snapshot as a fallback for the new daily entry.
      *
-     * @return rezultat fetch operacije sa sacuvanim kursevima
+     * @return result of the fetch operation including stored exchange rates
      */
     ExchangeRateFetchResponseDto fetchAndStoreDailyRates();
 
     /**
-     * Vraca sve kurseve za trazeni datum ili poslednji raspolozivi snapshot.
+     * Retrieves all exchange rates for the requested date or the latest available snapshot.
      *
-     * @param date datum snapshot-a; ako je {@code null}, vraca se poslednji raspolozivi datum
-     * @return lista kurseva
+     * @param date snapshot date; if {@code null}, returns the latest available date
+     * @return list of exchange rates
      */
     List<ExchangeRateDto> getRates(LocalDate date);
 
     /**
-     * Vraca kurs za jednu valutu za zadati datum ili poslednji raspolozivi snapshot.
+     * Retrieves the exchange rate for a single currency for the given date
+     * or the latest available snapshot if no date is provided.
      *
-     * @param currencyCode troslovni ISO kod valute
-     * @param date         datum snapshot-a; ako je {@code null}, vraca se poslednji raspolozivi datum
-     * @return kurs valute
+     * @param currencyCode three-letter ISO currency code
+     * @param date snapshot date; if {@code null}, returns the latest available date
+     * @return exchange rate for the specified currency
      */
     ExchangeRateDto getRate(String currencyCode, LocalDate date);
 
     /**
-     * Konvertuje iznos koristeci lokalno sacuvane kurseve i pravilo da sve ide preko RSD.
+     * Converts an amount from one currency to another using locally stored rates.
+     * Conversion always uses RSD as the base currency according to business rules.
      *
-     * @param request zahtev za konverziju
-     * @return rezultat konverzije
+     * @param request conversion request containing source/target currencies and amount
+     * @return conversion result with output amount, effective rate, and commission
      */
     ConversionResponseDto convert(ConversionRequestDto request);
 }

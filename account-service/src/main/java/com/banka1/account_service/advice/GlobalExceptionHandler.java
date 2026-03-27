@@ -2,9 +2,14 @@ package com.banka1.account_service.advice;
 
 
 import com.banka1.account_service.dto.response.ErrorResponseDto;
+import com.banka1.account_service.exception.BusinessException;
+import com.banka1.account_service.exception.ErrorCode;
+import org.springframework.amqp.AmqpException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -16,8 +21,27 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 /**
- * Centralizovani hendler gresaka za sve REST kontrolere.
- * Mapira ocekivane i neocekivane izuzetke na standardizovane HTTP odgovore sa {@link ErrorResponseDto} telom.
+ * Centralizovani hendler grešaka za sve REST kontrolere account-service-a.
+ * <p>
+ * Mapira očekivane i neočekivane izuzetke na standardizovane HTTP odgovore sa
+ * {@link ErrorResponseDto} telom. Sve greške vraćaju konzistentnu strukturu
+ * sa kodom, naslovom i detaljima greške.
+ * <p>
+ * Podržani izuzeci:
+ * <ul>
+ *   <li>{@link BusinessException} - poslovne greške sa {@link ErrorCode}</li>
+ *   <li>{@link MethodArgumentNotValidException} - greške validacije DTO-a sa mapom polja</li>
+ *   <li>{@link DataIntegrityViolationException} - kršenja integrity ograničenja baze (duplikati)</li>
+ *   <li>{@link NoSuchElementException} - traženjem resurs nije pronađen (404)</li>
+ *   <li>{@link IllegalArgumentException} - neispravni argumenti</li>
+ *   <li>{@link AmqpException} - greške RabbitMQ komunikacije</li>
+ *   <li>{@link AccessDeniedException} - pristup odbijen (403)</li>
+ *   <li>{@link AuthenticationException} - autentifikacija nije uspela (401)</li>
+ *   <li>{@link Exception} - svi ostali neočekivani izuzeci (500)</li>
+ * </ul>
+ * <p>
+ * Svi izuzeci se obrađuju sa odgovarajućim HTTP status kodovima kako je navedeno
+ * u svakom `@ExceptionHandler` metodu.
  */
 @RestControllerAdvice
 @Component("accountServiceGlobalExceptionHandler")
@@ -70,23 +94,22 @@ public class GlobalExceptionHandler {
         );
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
-    //todo otkomentarisati kada se otkomentarise rabbitmq
 
-//    /**
-//     * Obradjuje greske komunikacije sa RabbitMQ brokerom.
-//     *
-//     * @param ex AMQP izuzetak nastao pri slanju poruke
-//     * @return HTTP 500 Internal Server Error odgovor sa kodom {@code ERR_INTERNAL_SERVER}
-//     */
-//    @ExceptionHandler(AmqpException.class)
-//    public ResponseEntity<ErrorResponseDto> handleRabbitMqException(AmqpException ex) {
-//        ErrorResponseDto error = new ErrorResponseDto(
-//                "ERR_INTERNAL_SERVER",
-//                "Serverska greška",
-//                "Mejl nije poslat. Naš tim je obavešten."
-//        );
-//        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
-//    }
+    /**
+     * Obradjuje greske komunikacije sa RabbitMQ brokerom.
+     *
+     * @param ex AMQP izuzetak nastao pri slanju poruke
+     * @return HTTP 500 Internal Server Error odgovor sa kodom {@code ERR_INTERNAL_SERVER}
+     */
+    @ExceptionHandler(AmqpException.class)
+    public ResponseEntity<ErrorResponseDto> handleRabbitMqException(AmqpException ex) {
+        ErrorResponseDto error = new ErrorResponseDto(
+                "ERR_INTERNAL_SERVER",
+                "Serverska greška",
+                "Mejl nije poslat. Naš tim je obavešten."
+        );
+        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
 
     /**
      * Obradjuje neocekivane izuzetke i vraca genericki odgovor za internu gresku.
@@ -94,6 +117,26 @@ public class GlobalExceptionHandler {
      * @param ex neocekivani izuzetak
      * @return HTTP 500 odgovor sa standardizovanim telom greske
      */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponseDto> handleAccessDenied(AccessDeniedException ex) {
+        ErrorResponseDto error = new ErrorResponseDto(
+                "ERR_FORBIDDEN",
+                "Pristup odbijen",
+                "Nemate dozvolu za ovu akciju."
+        );
+        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponseDto> handleAuthenticationException(AuthenticationException ex) {
+        ErrorResponseDto error = new ErrorResponseDto(
+                "ERR_UNAUTHORIZED",
+                "Neautorizovan pristup",
+                "Niste autentifikovani."
+        );
+        return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDto> handleUnexpectedException(Exception ex) {
         ErrorResponseDto error = new ErrorResponseDto(
@@ -104,22 +147,22 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-//    /**
-//     * Obradjuje poznate biznis izuzetke i mapira ih na odgovarajuci HTTP status.
-//     *
-//     * @param ex biznis izuzetak koji sadrzi domen-specifican kod greske
-//     * @return odgovor sa detaljima biznis greske i HTTP statusom iz {@link ErrorCode}
-//     */
-//    @ExceptionHandler(BusinessException.class)
-//    public ResponseEntity<ErrorResponseDto> handleBusinessException(BusinessException ex) {
-//        ErrorCode errorCode = ex.getErrorCode();
-//        ErrorResponseDto error = new ErrorResponseDto(
-//                errorCode.getCode(),
-//                errorCode.getTitle(),
-//                ex.getMessage()
-//        );
-//        return new ResponseEntity<>(error, errorCode.getHttpStatus());
-//    }
+    /**
+     * Obradjuje poznate biznis izuzetke i mapira ih na odgovarajuci HTTP status.
+     *
+     * @param ex biznis izuzetak koji sadrzi domen-specifican kod greske
+     * @return odgovor sa detaljima biznis greske i HTTP statusom iz {@link ErrorCode}
+     */
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ErrorResponseDto> handleBusinessException(BusinessException ex) {
+        ErrorCode errorCode = ex.getErrorCode();
+        ErrorResponseDto error = new ErrorResponseDto(
+                errorCode.getCode(),
+                errorCode.getTitle(),
+                ex.getMessage()
+        );
+        return new ResponseEntity<>(error, errorCode.getHttpStatus());
+    }
 
     /**
      * Obradjuje greske validacije DTO zahteva i vraca listu neispravnih polja.
