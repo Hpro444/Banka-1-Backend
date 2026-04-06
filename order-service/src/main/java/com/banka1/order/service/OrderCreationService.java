@@ -1,5 +1,6 @@
 package com.banka1.order.service;
 
+import com.banka1.order.dto.AuthenticatedUser;
 import com.banka1.order.dto.CreateBuyOrderRequest;
 import com.banka1.order.dto.CreateSellOrderRequest;
 import com.banka1.order.dto.OrderResponse;
@@ -16,7 +17,7 @@ public interface OrderCreationService {
      * @param request the buy order request
      * @return the created order response
      */
-    OrderResponse createBuyOrder(Long userId, CreateBuyOrderRequest request);
+    OrderResponse createBuyOrder(AuthenticatedUser user, CreateBuyOrderRequest request);
 
     /**
      * Creates a sell order with validation and approval logic.
@@ -25,5 +26,41 @@ public interface OrderCreationService {
      * @param request the sell order request
      * @return the created order response
      */
-    OrderResponse createSellOrder(Long userId, CreateSellOrderRequest request);
+    OrderResponse createSellOrder(AuthenticatedUser user, CreateSellOrderRequest request);
+
+    /**
+     * Confirms a draft order and finalizes validation, approval state, and fee transfer.
+     *
+     * @param user the authenticated owner of the order
+     * @param orderId the order to confirm
+     * @return the updated order response
+     */
+    OrderResponse confirmOrder(AuthenticatedUser user, Long orderId);
+
+    /**
+     * Cancels a not-yet-completed order.
+     *
+     * @param user the authenticated owner of the order
+     * @param orderId the order to cancel
+     * @return the updated order response
+     */
+    OrderResponse cancelOrder(AuthenticatedUser user, Long orderId);
+
+    /**
+     * Approves a pending actuary order.
+     *
+     * @param supervisorId the approving supervisor
+     * @param orderId the order to approve
+     * @return the updated order response
+     */
+    OrderResponse approveOrder(Long supervisorId, Long orderId);
+
+    /**
+     * Declines a pending actuary order.
+     *
+     * @param supervisorId the declining supervisor
+     * @param orderId the order to decline
+     * @return the updated order response
+     */
+    OrderResponse declineOrder(Long supervisorId, Long orderId);
 }

@@ -2,18 +2,28 @@ package com.banka1.order.service.impl;
 
 import com.banka1.order.client.AccountClient;
 import com.banka1.order.client.EmployeeClient;
+import com.banka1.order.client.ExchangeClient;
 import com.banka1.order.client.StockClient;
-import com.banka1.order.dto.*;
+import com.banka1.order.dto.AccountDetailsDto;
+import com.banka1.order.dto.AccountTransactionRequest;
+import com.banka1.order.dto.AuthenticatedUser;
+import com.banka1.order.dto.CreateBuyOrderRequest;
+import com.banka1.order.dto.CreateSellOrderRequest;
+import com.banka1.order.dto.EmployeeDto;
+import com.banka1.order.dto.ExchangeRateDto;
+import com.banka1.order.dto.ExchangeStatusDto;
+import com.banka1.order.dto.OrderResponse;
+import com.banka1.order.dto.StockListingDto;
 import com.banka1.order.entity.ActuaryInfo;
 import com.banka1.order.entity.Order;
 import com.banka1.order.entity.Portfolio;
+import com.banka1.order.entity.enums.ListingType;
 import com.banka1.order.entity.enums.OrderDirection;
 import com.banka1.order.entity.enums.OrderStatus;
 import com.banka1.order.entity.enums.OrderType;
 import com.banka1.order.repository.ActuaryInfoRepository;
 import com.banka1.order.repository.OrderRepository;
 import com.banka1.order.repository.PortfolioRepository;
-import com.banka1.order.service.OrderCreationService;
 import com.banka1.order.service.OrderExecutionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,55 +34,60 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-/**
- * Integration tests for OrderCreationService.
- */
 @ExtendWith(MockitoExtension.class)
 class OrderCreationServiceTest {
 
     @Mock
     private OrderRepository orderRepository;
-
     @Mock
     private ActuaryInfoRepository actuaryInfoRepository;
-
     @Mock
     private PortfolioRepository portfolioRepository;
-
     @Mock
     private StockClient stockClient;
-
     @Mock
     private AccountClient accountClient;
-
     @Mock
     private EmployeeClient employeeClient;
-
+    @Mock
+    private ExchangeClient exchangeClient;
     @Mock
     private OrderExecutionService orderExecutionService;
 
     @InjectMocks
-    private OrderCreationServiceImpl orderCreationService;
+    private OrderCreationServiceImpl service;
 
+    private AuthenticatedUser clientUser;
+    private AuthenticatedUser marginClient;
+    private AuthenticatedUser actuaryUser;
     private CreateBuyOrderRequest buyRequest;
     private CreateSellOrderRequest sellRequest;
     private StockListingDto listing;
     private ExchangeStatusDto exchangeStatus;
     private AccountDetailsDto accountDetails;
-    private Portfolio portfolio;
-    private Order savedOrder;
+    private EmployeeDto bankAccount;
+    private AtomicReference<Order> storedOrder;
 
     @BeforeEach
     void setUp() {
-        // Buy request setup
+        clientUser = new AuthenticatedUser(1L, Set.of("CLIENT"), Set.of());
+        marginClient = new AuthenticatedUser(1L, Set.of("CLIENT"), Set.of("MARGIN_TRADING"));
+        actuaryUser = new AuthenticatedUser(2L, Set.of("ACTUARY"), Set.of("MARGIN_TRADING"));
+
         buyRequest = new CreateBuyOrderRequest();
         buyRequest.setListingId(42L);
         buyRequest.setQuantity(10);
@@ -80,7 +95,6 @@ class OrderCreationServiceTest {
         buyRequest.setAllOrNone(false);
         buyRequest.setMargin(false);
 
-        // Sell request setup
         sellRequest = new CreateSellOrderRequest();
         sellRequest.setListingId(42L);
         sellRequest.setQuantity(5);
@@ -88,256 +102,282 @@ class OrderCreationServiceTest {
         sellRequest.setAllOrNone(false);
         sellRequest.setMargin(false);
 
-        // Listing setup
         listing = new StockListingDto();
         listing.setId(42L);
-        listing.setTicker("TEST");
         listing.setPrice(new BigDecimal("100.00"));
         listing.setAsk(new BigDecimal("101.00"));
         listing.setBid(new BigDecimal("99.00"));
         listing.setContractSize(1);
-        listing.setExchangeId(1L);
-        listing.setCurrency("RSD");
+        listing.setExchangeId(7L);
+        listing.setCurrency("USD");
+        listing.setListingType(ListingType.STOCK);
+        listing.setVolume(500L);
 
-        // Exchange status setup
         exchangeStatus = new ExchangeStatusDto();
         exchangeStatus.setOpen(true);
         exchangeStatus.setAfterHours(false);
         exchangeStatus.setClosed(false);
 
-        // Account details setup
         accountDetails = new AccountDetailsDto();
-        accountDetails.setAccountNumber("123456");
+        accountDetails.setAccountNumber("ACC-1");
         accountDetails.setBalance(new BigDecimal("50000.00"));
-        accountDetails.setCurrency("RSD");
+        accountDetails.setCurrency("USD");
+        accountDetails.setOwnerId(1L);
+        accountDetails.setAvailableCredit(new BigDecimal("1000.00"));
 
-        // Portfolio setup
-        portfolio = new Portfolio();
+        bankAccount = new EmployeeDto();
+        bankAccount.setId(999L);
+        storedOrder = new AtomicReference<>();
+
+        ExchangeRateDto usdToRsd = new ExchangeRateDto();
+        usdToRsd.setConvertedAmount(new BigDecimal("1170.00"));
+        ExchangeRateDto usdCap = new ExchangeRateDto();
+        usdCap.setConvertedAmount(new BigDecimal("7.00"));
+        ExchangeRateDto limitCap = new ExchangeRateDto();
+        limitCap.setConvertedAmount(new BigDecimal("12.00"));
+
+        lenient().when(stockClient.getListing(42L)).thenReturn(listing);
+        lenient().when(stockClient.getExchangeStatus(7L)).thenReturn(exchangeStatus);
+        lenient().when(accountClient.getAccountDetails(5L)).thenReturn(accountDetails);
+        lenient().when(accountClient.getAccountDetails(999L)).thenReturn(accountDetails);
+        lenient().doNothing().when(accountClient).transfer(any(AccountTransactionRequest.class));
+        lenient().when(employeeClient.getBankAccount("USD")).thenReturn(bankAccount);
+        lenient().when(actuaryInfoRepository.findByEmployeeId(1L)).thenReturn(Optional.empty());
+        lenient().when(actuaryInfoRepository.findByEmployeeId(2L)).thenReturn(Optional.empty());
+        lenient().when(exchangeClient.calculate("USD", "RSD", new BigDecimal("1010.00"))).thenReturn(usdToRsd);
+        lenient().when(exchangeClient.calculate("USD", "USD", new BigDecimal("7"))).thenReturn(usdCap);
+        lenient().when(exchangeClient.calculate("USD", "USD", new BigDecimal("12"))).thenReturn(limitCap);
+        lenient().when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            if (order.getId() == null) {
+                order.setId(100L);
+            }
+            storedOrder.set(order);
+            return order;
+        });
+        lenient().when(orderRepository.findById(100L)).thenAnswer(invocation -> Optional.ofNullable(storedOrder.get()));
+    }
+
+    @Test
+    void createBuyOrder_createsDraftAwaitingConfirmation() {
+        OrderResponse response = service.createBuyOrder(clientUser, buyRequest);
+
+        assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING_CONFIRMATION);
+        assertThat(response.getDirection()).isEqualTo(OrderDirection.BUY);
+        verify(accountClient, never()).transfer(any());
+        verify(orderExecutionService, never()).executeOrderAsync(any());
+    }
+
+    @Test
+    void confirmBuyOrder_forClientApprovesTransfersFeeAndStartsExecution() {
+        service.createBuyOrder(clientUser, buyRequest);
+
+        OrderResponse response = service.confirmOrder(clientUser, 100L);
+
+        assertThat(response.getStatus()).isEqualTo(OrderStatus.APPROVED);
+        assertThat(response.getApprovedBy()).isEqualTo(OrderCreationServiceImpl.NO_APPROVAL_REQUIRED);
+        verify(accountClient).transfer(any(AccountTransactionRequest.class));
+        verify(orderExecutionService).executeOrderAsync(100L);
+
+        ArgumentCaptor<AccountTransactionRequest> captor = ArgumentCaptor.forClass(AccountTransactionRequest.class);
+        verify(accountClient).transfer(captor.capture());
+        assertThat(captor.getValue().getCurrency()).isEqualTo("USD");
+    }
+
+    @Test
+    void confirmBuyOrder_forAgentNeedingApprovalMovesToPending() {
+        ActuaryInfo agent = new ActuaryInfo();
+        agent.setEmployeeId(2L);
+        agent.setNeedApproval(true);
+        agent.setLimit(new BigDecimal("2000.00"));
+        agent.setUsedLimit(BigDecimal.ZERO);
+        when(actuaryInfoRepository.findByEmployeeId(2L)).thenReturn(Optional.of(agent));
+
+        service.createBuyOrder(actuaryUser, buyRequest);
+        OrderResponse response = service.confirmOrder(actuaryUser, 100L);
+
+        assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING);
+        assertThat(response.getApprovedBy()).isNull();
+        verify(orderExecutionService, never()).executeOrderAsync(any());
+    }
+
+    @Test
+    void approveOrder_updatesApprovedByAndStartsExecution() {
+        ActuaryInfo agent = new ActuaryInfo();
+        agent.setEmployeeId(2L);
+        agent.setNeedApproval(true);
+        agent.setLimit(new BigDecimal("2000.00"));
+        agent.setUsedLimit(BigDecimal.ZERO);
+        when(actuaryInfoRepository.findByEmployeeId(2L)).thenReturn(Optional.of(agent));
+
+        service.createBuyOrder(actuaryUser, buyRequest);
+        service.confirmOrder(actuaryUser, 100L);
+
+        OrderResponse response = service.approveOrder(88L, 100L);
+
+        assertThat(response.getStatus()).isEqualTo(OrderStatus.APPROVED);
+        assertThat(response.getApprovedBy()).isEqualTo(88L);
+        verify(orderExecutionService).executeOrderAsync(100L);
+    }
+
+    @Test
+    void declineOrder_marksPendingAgentOrderDeclined() {
+        ActuaryInfo agent = new ActuaryInfo();
+        agent.setEmployeeId(2L);
+        agent.setNeedApproval(true);
+        agent.setLimit(new BigDecimal("2000.00"));
+        agent.setUsedLimit(BigDecimal.ZERO);
+        when(actuaryInfoRepository.findByEmployeeId(2L)).thenReturn(Optional.of(agent));
+
+        service.createBuyOrder(actuaryUser, buyRequest);
+        service.confirmOrder(actuaryUser, 100L);
+
+        OrderResponse response = service.declineOrder(77L, 100L);
+
+        assertThat(response.getStatus()).isEqualTo(OrderStatus.DECLINED);
+        assertThat(response.getApprovedBy()).isEqualTo(77L);
+    }
+
+    @Test
+    void confirmBuyOrder_withPastSettlementDateAutoDeclines() {
+        listing.setSettlementDate(LocalDate.now().minusDays(1));
+        service.createBuyOrder(clientUser, buyRequest);
+
+        OrderResponse response = service.confirmOrder(clientUser, 100L);
+
+        assertThat(response.getStatus()).isEqualTo(OrderStatus.DECLINED);
+        assertThat(response.getApprovedBy()).isEqualTo(OrderCreationServiceImpl.SYSTEM_APPROVAL);
+        verify(orderExecutionService, never()).executeOrderAsync(any());
+    }
+
+    @Test
+    void confirmMarginBuy_rejectsWhenUserLacksMarginPermission() {
+        buyRequest.setMargin(true);
+        service.createBuyOrder(clientUser, buyRequest);
+
+        assertThatThrownBy(() -> service.confirmOrder(clientUser, 100L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("margin permission");
+    }
+
+    @Test
+    void confirmMarginBuy_acceptsWhenApprovedCreditCoversInitialMargin() {
+        buyRequest.setMargin(true);
+        accountDetails.setBalance(BigDecimal.ZERO);
+        accountDetails.setAvailableCredit(new BigDecimal("10000.00"));
+
+        service.createBuyOrder(marginClient, buyRequest);
+        OrderResponse response = service.confirmOrder(marginClient, 100L);
+
+        assertThat(response.getStatus()).isEqualTo(OrderStatus.APPROVED);
+    }
+
+    @Test
+    void createBuyOrder_marksAfterHoursWhenExchangeClosed() {
+        exchangeStatus.setClosed(true);
+        exchangeStatus.setOpen(false);
+
+        service.createBuyOrder(clientUser, buyRequest);
+
+        ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
+        verify(orderRepository).save(captor.capture());
+        assertThat(captor.getValue().getAfterHours()).isTrue();
+    }
+
+    @Test
+    void createSellOrder_requiresOwnedPortfolioAndUsesConfirmationFlow() {
+        Portfolio portfolio = new Portfolio();
         portfolio.setUserId(1L);
         portfolio.setListingId(42L);
-        portfolio.setQuantity(100);
-        portfolio.setAveragePurchasePrice(new BigDecimal("95.00"));
-
-        // Saved order setup
-        savedOrder = new Order();
-        savedOrder.setId(1L);
-        savedOrder.setUserId(1L);
-        savedOrder.setListingId(42L);
-        savedOrder.setDirection(OrderDirection.BUY);
-        savedOrder.setStatus(OrderStatus.APPROVED);
-
-        // Default mock responses
-        EmployeeDto bankAccount = new EmployeeDto();
-        bankAccount.setId(999L);
-        
-        lenient().when(stockClient.getListing(42L)).thenReturn(listing);
-        lenient().when(stockClient.getExchangeStatus(1L)).thenReturn(exchangeStatus);
-        lenient().when(accountClient.getAccountDetails(5L)).thenReturn(accountDetails);
-        lenient().doNothing().when(accountClient).transfer(any());
-        lenient().when(actuaryInfoRepository.findByEmployeeId(1L)).thenReturn(Optional.empty());
-        lenient().when(employeeClient.getBankAccount("RSD")).thenReturn(bankAccount);
-    }
-
-    // Buy Order Tests
-
-    @Test
-    void buyMarketOrder_createdSuccessfully() {
-        when(orderRepository.save(any())).thenReturn(savedOrder);
-
-        OrderResponse response = orderCreationService.createBuyOrder(1L, buyRequest);
-
-        assertThat(response).isNotNull();
-        assertThat(response.getDirection()).isEqualTo(OrderDirection.BUY);
-        assertThat(response.getStatus()).isEqualTo(OrderStatus.APPROVED);
-        verify(orderRepository).save(any());
-    }
-
-    @Test
-    void buyLimitOrder_withLimitValue() {
-        buyRequest.setLimitValue(new BigDecimal("98.00"));
-        when(orderRepository.save(any())).thenReturn(savedOrder);
-
-        OrderResponse response = orderCreationService.createBuyOrder(1L, buyRequest);
-
-        ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
-        verify(orderRepository).save(captor.capture());
-        Order saved = captor.getValue();
-
-        assertThat(saved.getOrderType()).isEqualTo(OrderType.LIMIT);
-        assertThat(saved.getLimitValue()).isEqualByComparingTo("98.00");
-    }
-
-    @Test
-    void buyOrder_agentWithNeedApproval_statusPending() {
-        ActuaryInfo agentInfo = new ActuaryInfo();
-        agentInfo.setEmployeeId(1L);
-        agentInfo.setNeedApproval(true);
-        agentInfo.setUsedLimit(BigDecimal.ZERO);
-        agentInfo.setLimit(new BigDecimal("100000.00"));
-
-        when(actuaryInfoRepository.findByEmployeeId(1L)).thenReturn(Optional.of(agentInfo));
-        when(orderRepository.save(any())).thenAnswer(inv -> {
-            Order order = inv.getArgument(0);
-            order.setStatus(OrderStatus.PENDING);
-            return order;
-        });
-
-        OrderResponse response = orderCreationService.createBuyOrder(1L, buyRequest);
-
-        assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING);
-    }
-
-    @Test
-    void buyOrder_agentExceedsLimit_statusPending() {
-        ActuaryInfo agentInfo = new ActuaryInfo();
-        agentInfo.setEmployeeId(1L);
-        agentInfo.setNeedApproval(false);
-        agentInfo.setUsedLimit(new BigDecimal("95000.00"));
-        agentInfo.setLimit(new BigDecimal("100000.00"));
-
-        when(actuaryInfoRepository.findByEmployeeId(1L)).thenReturn(Optional.of(agentInfo));
-        when(orderRepository.save(any())).thenAnswer(inv -> {
-            Order order = inv.getArgument(0);
-            order.setStatus(OrderStatus.PENDING);
-            return order;
-        });
-
-        OrderResponse response = orderCreationService.createBuyOrder(1L, buyRequest);
-
-        assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING);
-    }
-
-    @Test
-    void buyOrder_invalidQuantity_throwsException() {
-        buyRequest.setQuantity(-1);
-
-        assertThatThrownBy(() -> orderCreationService.createBuyOrder(1L, buyRequest))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    void buyOrder_nullQuantity_throwsException() {
-        buyRequest.setQuantity(null);
-
-        assertThatThrownBy(() -> orderCreationService.createBuyOrder(1L, buyRequest))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    void buyOrder_insufficientFunds_throwsException() {
-        accountDetails.setBalance(new BigDecimal("100.00")); // Too low
-        when(accountClient.getAccountDetails(5L)).thenReturn(accountDetails);
-
-        assertThatThrownBy(() -> orderCreationService.createBuyOrder(1L, buyRequest))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    void buyOrder_approved_triggersExecution() {
-        when(orderRepository.save(any())).thenReturn(savedOrder);
-
-        orderCreationService.createBuyOrder(1L, buyRequest);
-
-        verify(orderExecutionService).executeOrderAsync(savedOrder.getId());
-    }
-
-    // Sell Order Tests
-
-    @Test
-    void sellOrder_createdSuccessfully() {
+        portfolio.setQuantity(20);
+        portfolio.setAveragePurchasePrice(new BigDecimal("90.00"));
         when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
-        when(orderRepository.save(any())).thenReturn(savedOrder);
 
-        OrderResponse response = orderCreationService.createSellOrder(1L, sellRequest);
+        OrderResponse created = service.createSellOrder(clientUser, sellRequest);
+        OrderResponse confirmed = service.confirmOrder(clientUser, 100L);
 
-        assertThat(response).isNotNull();
-        verify(orderRepository).save(any());
+        assertThat(created.getStatus()).isEqualTo(OrderStatus.PENDING_CONFIRMATION);
+        assertThat(confirmed.getStatus()).isEqualTo(OrderStatus.APPROVED);
     }
 
     @Test
-    void sellOrder_noPortfolio_throwsException() {
+    void createSellOrder_rejectsMissingPortfolio() {
         when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> orderCreationService.createSellOrder(1L, sellRequest))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    void sellOrder_insufficientPortfolioQuantity_throwsException() {
-        portfolio.setQuantity(3); // Less than requested 5
-        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
-
-        assertThatThrownBy(() -> orderCreationService.createSellOrder(1L, sellRequest))
+        assertThatThrownBy(() -> service.createSellOrder(clientUser, sellRequest))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Insufficient portfolio quantity");
+                .hasMessageContaining("Portfolio position not found");
     }
 
     @Test
-    void sellOrder_exactPortfolioQuantity_passes() {
-        portfolio.setQuantity(5); // Exactly what we want to sell
+    void confirmMarginSell_rejectsWhenUserLacksMarginPermission() {
+        Portfolio portfolio = new Portfolio();
+        portfolio.setUserId(1L);
+        portfolio.setListingId(42L);
+        portfolio.setQuantity(20);
+        portfolio.setAveragePurchasePrice(new BigDecimal("90.00"));
         when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
-        when(orderRepository.save(any())).thenReturn(savedOrder);
+        sellRequest.setMargin(true);
 
-        OrderResponse response = orderCreationService.createSellOrder(1L, sellRequest);
+        service.createSellOrder(clientUser, sellRequest);
 
-        assertThat(response).isNotNull();
-        verify(orderRepository).save(any());
+        assertThatThrownBy(() -> service.confirmOrder(clientUser, 100L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("margin permission");
     }
 
     @Test
-    void sellOrder_transfersFee() {
+    void confirmMarginSell_acceptsWhenApprovedCreditCoversInitialMargin() {
+        Portfolio portfolio = new Portfolio();
+        portfolio.setUserId(1L);
+        portfolio.setListingId(42L);
+        portfolio.setQuantity(20);
+        portfolio.setAveragePurchasePrice(new BigDecimal("90.00"));
         when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
-        when(orderRepository.save(any())).thenReturn(savedOrder);
+        sellRequest.setMargin(true);
+        accountDetails.setBalance(BigDecimal.ZERO);
+        accountDetails.setAvailableCredit(new BigDecimal("10000.00"));
 
-        EmployeeDto bankAccount = new EmployeeDto();
-        bankAccount.setId(999L);
-        when(employeeClient.getBankAccount("RSD")).thenReturn(bankAccount);
+        service.createSellOrder(marginClient, sellRequest);
+        OrderResponse response = service.confirmOrder(marginClient, 100L);
 
-        orderCreationService.createSellOrder(1L, sellRequest);
-
-        verify(accountClient).transfer(any(AccountTransactionRequest.class));
+        assertThat(response.getStatus()).isEqualTo(OrderStatus.APPROVED);
     }
 
     @Test
-    void buyOrder_withAllOrNone_isSet() {
-        buyRequest.setAllOrNone(true);
-        when(orderRepository.save(any())).thenReturn(savedOrder);
+    void confirmMarginSell_acceptsWhenFundsCoverInitialMargin() {
+        Portfolio portfolio = new Portfolio();
+        portfolio.setUserId(1L);
+        portfolio.setListingId(42L);
+        portfolio.setQuantity(20);
+        portfolio.setAveragePurchasePrice(new BigDecimal("90.00"));
+        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
+        sellRequest.setMargin(true);
+        accountDetails.setAvailableCredit(BigDecimal.ZERO);
+        accountDetails.setBalance(new BigDecimal("10000.00"));
 
-        orderCreationService.createBuyOrder(1L, buyRequest);
+        service.createSellOrder(marginClient, sellRequest);
+        OrderResponse response = service.confirmOrder(marginClient, 100L);
 
-        ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
-        verify(orderRepository).save(captor.capture());
-        Order saved = captor.getValue();
-
-        assertThat(saved.getAllOrNone()).isTrue();
+        assertThat(response.getStatus()).isEqualTo(OrderStatus.APPROVED);
     }
 
     @Test
-    void buyOrder_storesContractSize() {
-        when(orderRepository.save(any())).thenReturn(savedOrder);
+    void confirmMarginSell_rejectsWhenNeitherCreditNorFundsAreSufficient() {
+        Portfolio portfolio = new Portfolio();
+        portfolio.setUserId(1L);
+        portfolio.setListingId(42L);
+        portfolio.setQuantity(20);
+        portfolio.setAveragePurchasePrice(new BigDecimal("90.00"));
+        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
+        sellRequest.setMargin(true);
+        accountDetails.setAvailableCredit(BigDecimal.ZERO);
+        accountDetails.setBalance(BigDecimal.ONE);
 
-        orderCreationService.createBuyOrder(1L, buyRequest);
+        service.createSellOrder(marginClient, sellRequest);
 
-        ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
-        verify(orderRepository).save(captor.capture());
-        Order saved = captor.getValue();
-
-        assertThat(saved.getContractSize()).isEqualTo(listing.getContractSize());
-    }
-
-    @Test
-    void buyOrder_afterHoursFlag_isSet() {
-        exchangeStatus.setAfterHours(true);
-        when(stockClient.getExchangeStatus(1L)).thenReturn(exchangeStatus);
-        when(orderRepository.save(any())).thenReturn(savedOrder);
-
-        orderCreationService.createBuyOrder(1L, buyRequest);
-
-        ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
-        verify(orderRepository).save(captor.capture());
-        Order saved = captor.getValue();
-
-        assertThat(saved.getAfterHours()).isTrue();
+        assertThatThrownBy(() -> service.confirmOrder(marginClient, 100L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Margin requirements");
     }
 }
-

@@ -1,18 +1,25 @@
 package com.banka1.order.service.impl;
 
 import com.banka1.order.client.AccountClient;
+import com.banka1.order.client.EmployeeClient;
+import com.banka1.order.client.ExchangeClient;
 import com.banka1.order.client.StockClient;
+import com.banka1.order.dto.AccountTransactionRequest;
+import com.banka1.order.dto.EmployeeDto;
+import com.banka1.order.dto.ExchangeRateDto;
 import com.banka1.order.dto.StockListingDto;
+import com.banka1.order.entity.ActuaryInfo;
 import com.banka1.order.entity.Order;
 import com.banka1.order.entity.Portfolio;
 import com.banka1.order.entity.Transaction;
+import com.banka1.order.entity.enums.ListingType;
 import com.banka1.order.entity.enums.OrderDirection;
 import com.banka1.order.entity.enums.OrderStatus;
 import com.banka1.order.entity.enums.OrderType;
+import com.banka1.order.repository.ActuaryInfoRepository;
 import com.banka1.order.repository.OrderRepository;
 import com.banka1.order.repository.PortfolioRepository;
 import com.banka1.order.repository.TransactionRepository;
-import com.banka1.order.service.OrderExecutionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,296 +27,261 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-/**
- * Integration tests for OrderExecutionService.
- */
 @ExtendWith(MockitoExtension.class)
 class OrderExecutionServiceTest {
 
     @Mock
     private OrderRepository orderRepository;
-
     @Mock
     private PortfolioRepository portfolioRepository;
-
     @Mock
     private TransactionRepository transactionRepository;
-
     @Mock
     private StockClient stockClient;
-
     @Mock
     private AccountClient accountClient;
+    @Mock
+    private EmployeeClient employeeClient;
+    @Mock
+    private ExchangeClient exchangeClient;
+    @Mock
+    private ActuaryInfoRepository actuaryInfoRepository;
 
     @InjectMocks
-    private OrderExecutionServiceImpl orderExecutionService;
+    private OrderExecutionServiceImpl service;
 
     private Order order;
     private StockListingDto listing;
+    private EmployeeDto bankAccount;
     private Portfolio portfolio;
-    private Transaction transaction;
+    private ActuaryInfo actuaryInfo;
 
     @BeforeEach
     void setUp() {
-        // Order setup
         order = new Order();
-        order.setId(1L);
+        order.setId(10L);
         order.setUserId(1L);
         order.setListingId(42L);
         order.setOrderType(OrderType.MARKET);
         order.setDirection(OrderDirection.BUY);
         order.setStatus(OrderStatus.APPROVED);
-        order.setQuantity(10);
-        order.setContractSize(1);
-        order.setRemainingPortions(10);
+        order.setQuantity(1);
+        order.setContractSize(2);
+        order.setRemainingPortions(1);
         order.setIsDone(false);
         order.setAfterHours(false);
         order.setAllOrNone(false);
+        order.setAccountId(5L);
 
-        // Listing setup
         listing = new StockListingDto();
         listing.setId(42L);
         listing.setPrice(new BigDecimal("100.00"));
         listing.setAsk(new BigDecimal("101.00"));
         listing.setBid(new BigDecimal("99.00"));
-        listing.setContractSize(1);
+        listing.setContractSize(2);
+        listing.setCurrency("USD");
+        listing.setVolume(50L);
+        listing.setListingType(ListingType.STOCK);
 
-        // Portfolio setup
+        bankAccount = new EmployeeDto();
+        bankAccount.setId(999L);
+
         portfolio = new Portfolio();
+        portfolio.setId(50L);
         portfolio.setUserId(1L);
         portfolio.setListingId(42L);
-        portfolio.setQuantity(0);
-        portfolio.setAveragePurchasePrice(BigDecimal.ZERO);
+        portfolio.setListingType(ListingType.STOCK);
+        portfolio.setQuantity(5);
+        portfolio.setAveragePurchasePrice(new BigDecimal("95.00"));
 
-        // Transaction setup
-        transaction = new Transaction();
-        transaction.setOrderId(1L);
-        transaction.setQuantity(5);
-        transaction.setPricePerUnit(new BigDecimal("101.00"));
-        transaction.setTotalPrice(new BigDecimal("505.00"));
-        transaction.setCommission(BigDecimal.ZERO);
+        actuaryInfo = new ActuaryInfo();
+        actuaryInfo.setEmployeeId(1L);
+        actuaryInfo.setUsedLimit(BigDecimal.ZERO);
+        actuaryInfo.setLimit(new BigDecimal("100000.00"));
 
-        // Default mock responses
+        ExchangeRateDto usdToRsd = new ExchangeRateDto();
+        usdToRsd.setConvertedAmount(new BigDecimal("23634.00"));
+        ExchangeRateDto usdCap = new ExchangeRateDto();
+        usdCap.setConvertedAmount(new BigDecimal("7.00"));
+        ExchangeRateDto limitCap = new ExchangeRateDto();
+        limitCap.setConvertedAmount(new BigDecimal("12.00"));
+
         lenient().when(stockClient.getListing(42L)).thenReturn(listing);
+        lenient().when(employeeClient.getBankAccount("USD")).thenReturn(bankAccount);
         lenient().when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
-        lenient().when(transactionRepository.save(any())).thenReturn(transaction);
-        lenient().when(portfolioRepository.save(any())).thenReturn(portfolio);
-        lenient().when(orderRepository.save(any())).thenReturn(order);
+        lenient().when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(portfolioRepository.save(any(Portfolio.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().doNothing().when(accountClient).transfer(any(AccountTransactionRequest.class));
+        lenient().when(exchangeClient.calculate("USD", "RSD", new BigDecimal("202.00"))).thenReturn(usdToRsd);
+        lenient().when(exchangeClient.calculate("USD", "USD", new BigDecimal("7"))).thenReturn(usdCap);
+        lenient().when(exchangeClient.calculate("USD", "USD", new BigDecimal("12"))).thenReturn(limitCap);
     }
 
-    // Execution Tests
+    @Test
+    void marketBuy_executesUsingAskPriceTransfersFundsAndCompletesOrder() {
+        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.empty());
+
+        service.executeOrderPortion(order);
+
+        ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+        verify(transactionRepository).save(transactionCaptor.capture());
+        assertThat(transactionCaptor.getValue().getPricePerUnit()).isEqualByComparingTo("101.00");
+        assertThat(transactionCaptor.getValue().getTotalPrice()).isEqualByComparingTo("202.00");
+
+        ArgumentCaptor<AccountTransactionRequest> transferCaptor = ArgumentCaptor.forClass(AccountTransactionRequest.class);
+        verify(accountClient).transfer(transferCaptor.capture());
+        assertThat(transferCaptor.getValue().getFromAccountId()).isEqualTo(5L);
+        assertThat(transferCaptor.getValue().getToAccountId()).isEqualTo(999L);
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.DONE);
+        assertThat(order.getIsDone()).isTrue();
+    }
 
     @Test
-    void executePortion_createsTransaction() {
-        when(transactionRepository.save(any())).thenReturn(transaction);
-        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
+    void limitBuy_executesAtMinimumOfLimitAndAsk() {
+        order.setOrderType(OrderType.LIMIT);
+        order.setLimitValue(new BigDecimal("105.00"));
 
-        orderExecutionService.executeOrderPortion(order);
+        service.executeOrderPortion(order);
 
+        ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
+        verify(transactionRepository).save(captor.capture());
+        assertThat(captor.getValue().getPricePerUnit()).isEqualByComparingTo("101.00");
+    }
+
+    @Test
+    void limitSell_executesAtMaximumOfLimitAndBid() {
+        order.setDirection(OrderDirection.SELL);
+        order.setOrderType(OrderType.LIMIT);
+        order.setLimitValue(new BigDecimal("95.00"));
+
+        service.executeOrderPortion(order);
+
+        ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
+        verify(transactionRepository).save(captor.capture());
+        assertThat(captor.getValue().getPricePerUnit()).isEqualByComparingTo("99.00");
+    }
+
+    @Test
+    void stopBuy_activatesThenBehavesAsMarketBuy() {
+        order.setOrderType(OrderType.STOP);
+        order.setStopValue(new BigDecimal("100.00"));
+
+        service.executeOrderPortion(order);
+
+        assertThat(order.getOrderType()).isEqualTo(OrderType.MARKET);
         verify(transactionRepository).save(any(Transaction.class));
     }
 
     @Test
-    void executePortion_decreasesRemainingPortions() {
-        when(transactionRepository.save(any())).thenReturn(transaction);
-        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
-
-        int initialRemaining = order.getRemainingPortions();
-        orderExecutionService.executeOrderPortion(order);
-
-        // After execution, remaining should decrease
-        assertThat(order.getRemainingPortions()).isLessThanOrEqualTo(initialRemaining);
-    }
-
-    @Test
-    void executePortion_whenRemaining_updatesOrder() {
-        when(transactionRepository.save(any())).thenReturn(transaction);
-        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
-        when(orderRepository.save(any())).thenReturn(order);
-
-        orderExecutionService.executeOrderPortion(order);
-
-        verify(orderRepository).save(order);
-    }
-
-    @Test
-    void executeAll_untilDone_marksOrderDone() {
-        order.setRemainingPortions(1); // Only 1 left
-        when(transactionRepository.save(any())).thenReturn(transaction);
-        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
-
-        orderExecutionService.executeOrderPortion(order);
-
-        // After full execution
-        if (order.getRemainingPortions() == 0) {
-            assertThat(order.getIsDone()).isTrue();
-            assertThat(order.getStatus()).isEqualTo(OrderStatus.DONE);
-        }
-    }
-
-    @Test
-    void buyOrder_updatesPortfolio() {
-
-        orderExecutionService.executeOrderPortion(order);
-
-        // Portfolio should be updated for BUY
-        verify(portfolioRepository, atLeastOnce()).findByUserIdAndListingId(1L, 42L);
-    }
-
-    @Test
-    void sellOrder_decreasesPortfolioQuantity() {
+    void stopLimitSell_activatesThenBehavesAsLimitSell() {
         order.setDirection(OrderDirection.SELL);
-        portfolio.setQuantity(10);
+        order.setOrderType(OrderType.STOP_LIMIT);
+        order.setStopValue(new BigDecimal("100.00"));
+        order.setLimitValue(new BigDecimal("95.00"));
 
-        when(transactionRepository.save(any())).thenReturn(transaction);
-        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
+        service.executeOrderPortion(order);
 
-        orderExecutionService.executeOrderPortion(order);
-
-        // Portfolio quantity should decrease for SELL
-        verify(portfolioRepository, atLeastOnce()).save(portfolio);
-    }
-
-    @Test
-    void marketOrder_usesCorrectPrice() {
-        when(transactionRepository.save(any())).thenReturn(transaction);
-        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
-
-        orderExecutionService.executeOrderPortion(order);
-
+        assertThat(order.getOrderType()).isEqualTo(OrderType.LIMIT);
         ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
         verify(transactionRepository).save(captor.capture());
-        Transaction savedTx = captor.getValue();
-
-        // For BUY MARKET, should use ask price
-        assertThat(savedTx.getPricePerUnit()).isEqualByComparingTo(listing.getAsk());
+        assertThat(captor.getValue().getPricePerUnit()).isEqualByComparingTo("99.00");
     }
 
     @Test
-    void limitOrder_usesLimitPrice() {
-        order.setOrderType(OrderType.LIMIT);
-        order.setLimitValue(new BigDecimal("98.00"));
-
-        when(transactionRepository.save(any())).thenReturn(transaction);
-        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
-
-        orderExecutionService.executeOrderPortion(order);
-
-        ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
-        verify(transactionRepository).save(captor.capture());
-        Transaction savedTx = captor.getValue();
-
-        assertThat(savedTx.getPricePerUnit()).isEqualByComparingTo("98.00");
-    }
-
-    @Test
-    void allOrNone_executesFullQuantityOrNone() {
+    void aonOrder_doesNotExecuteWhenVolumeCannotFillEverything() {
         order.setAllOrNone(true);
         order.setRemainingPortions(10);
+        listing.setVolume(5L);
 
-        when(transactionRepository.save(any())).thenReturn(transaction);
-        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
+        service.executeOrderPortion(order);
 
-        // AON should execute all or nothing - in this test, we assume it executes all
-        orderExecutionService.executeOrderPortion(order);
+        verify(transactionRepository, never()).save(any());
+        assertThat(order.getRemainingPortions()).isEqualTo(10);
+    }
+
+    @Test
+    void chunkedExecution_usesRandomQuantityWithinRemainingAndVolume() {
+        order.setRemainingPortions(5);
+        order.setQuantity(5);
+        listing.setVolume(3L);
+
+        service.executeOrderPortion(order);
 
         ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
         verify(transactionRepository).save(captor.capture());
+        assertThat(captor.getValue().getQuantity()).isBetween(1, 3);
     }
 
     @Test
-    void stopOrder_checksActivation() {
-        order.setOrderType(OrderType.STOP);
-        order.setStopValue(new BigDecimal("95.00"));
-        order.setDirection(OrderDirection.BUY);
+    void buyExecution_persistsNewPortfolioWhenPositionDoesNotExist() {
+        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.empty());
 
-        // For BUY STOP, activation is when ask >= stopValue
-        // In our setup, ask = 101, stopValue = 95, so should activate
-        when(transactionRepository.save(any())).thenReturn(transaction);
-        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
+        service.executeOrderPortion(order);
 
-        orderExecutionService.executeOrderPortion(order);
-
-        // Should have created transaction if activated
-        verify(transactionRepository).save(any(Transaction.class));
+        ArgumentCaptor<Portfolio> captor = ArgumentCaptor.forClass(Portfolio.class);
+        verify(portfolioRepository).save(captor.capture());
+        assertThat(captor.getValue().getListingType()).isEqualTo(ListingType.STOCK);
+        assertThat(captor.getValue().getQuantity()).isEqualTo(1);
     }
 
     @Test
-    void asyncExecution_keepsExecutingUntilDone() {
-        order.setRemainingPortions(3);
+    void sellExecution_reducesPortfolioAndTransfersProceeds() {
+        order.setDirection(OrderDirection.SELL);
+        portfolio.setQuantity(3);
 
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-        when(transactionRepository.save(any())).thenReturn(transaction);
-        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
-        when(orderRepository.save(any())).thenReturn(order);
+        service.executeOrderPortion(order);
 
-        // Simulate loop by calling executeOrderAsync
-        // In real test, this would be async, but we're mocking it
-        orderExecutionService.executeOrderAsync(1L);
-
-        // At least one execution should happen
-        verify(transactionRepository, atLeastOnce()).save(any(Transaction.class));
+        verify(portfolioRepository, atLeastOnce()).save(portfolio);
+        ArgumentCaptor<AccountTransactionRequest> captor = ArgumentCaptor.forClass(AccountTransactionRequest.class);
+        verify(accountClient).transfer(captor.capture());
+        assertThat(captor.getValue().getFromAccountId()).isEqualTo(999L);
+        assertThat(captor.getValue().getToAccountId()).isEqualTo(5L);
     }
 
     @Test
-    void transaction_records_all_details() {
-        when(transactionRepository.save(any())).thenReturn(transaction);
-        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
+    void actuaryExecution_updatesUsedLimitWithCurrencyConversion() {
+        when(actuaryInfoRepository.findByEmployeeId(1L)).thenReturn(Optional.of(actuaryInfo));
 
-        orderExecutionService.executeOrderPortion(order);
+        service.executeOrderPortion(order);
 
-        ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
-        verify(transactionRepository).save(captor.capture());
-        Transaction savedTx = captor.getValue();
-
-        assertThat(savedTx.getOrderId()).isEqualTo(1L);
-        assertThat(savedTx.getQuantity()).isGreaterThan(0);
-        assertThat(savedTx.getPricePerUnit()).isNotNull();
-        assertThat(savedTx.getTotalPrice()).isNotNull();
+        verify(actuaryInfoRepository).save(actuaryInfo);
+        assertThat(actuaryInfo.getUsedLimit()).isEqualByComparingTo("23634.00");
     }
 
     @Test
-    void buyMarketOrder_updatesPortfolioCorrectly() {
-        order.setDirection(OrderDirection.BUY);
-        order.setOrderType(OrderType.MARKET);
-        portfolio.setQuantity(0);
+    void actuaryBuy_usesDistinctTransferAccounts() {
+        when(actuaryInfoRepository.findByEmployeeId(1L)).thenReturn(Optional.of(actuaryInfo));
 
+        service.executeOrderPortion(order);
 
-        orderExecutionService.executeOrderPortion(order);
-
-        // Portfolio should be fetched
-        verify(portfolioRepository, atLeastOnce()).findByUserIdAndListingId(1L, 42L);
+        ArgumentCaptor<AccountTransactionRequest> captor = ArgumentCaptor.forClass(AccountTransactionRequest.class);
+        verify(accountClient).transfer(captor.capture());
+        assertThat(captor.getValue().getFromAccountId()).isEqualTo(999L);
+        assertThat(captor.getValue().getToAccountId()).isEqualTo(5L);
+        assertThat(captor.getValue().getFromAccountId()).isNotEqualTo(captor.getValue().getToAccountId());
     }
 
     @Test
-    void remainingPortions_reachesZero_orderDone() {
-        order.setRemainingPortions(1);
+    void afterHoursDelayAddsThirtyMinutes() {
+        order.setAfterHours(true);
 
-        when(transactionRepository.save(any())).thenReturn(transaction);
-        when(portfolioRepository.findByUserIdAndListingId(1L, 42L)).thenReturn(Optional.of(portfolio));
-        when(orderRepository.save(any())).thenAnswer(inv -> {
-            Order o = inv.getArgument(0);
-            if (o.getRemainingPortions() == 0) {
-                o.setIsDone(true);
-                o.setStatus(OrderStatus.DONE);
-            }
-            return o;
-        });
+        long delay = (long) ReflectionTestUtils.invokeMethod(service, "calculateExecutionDelay", order);
 
-        orderExecutionService.executeOrderPortion(order);
-
-        // When remaining portions reach 0, order should be DONE
-        if (order.getRemainingPortions() == 0) {
-            assertThat(order.getStatus()).isEqualTo(OrderStatus.DONE);
-        }
+        assertThat(delay).isGreaterThanOrEqualTo(30L * 60L * 1000L);
     }
 }
-

@@ -1,5 +1,6 @@
 package com.banka1.order.controller;
 
+import com.banka1.order.dto.AuthenticatedUser;
 import com.banka1.order.dto.CreateBuyOrderRequest;
 import com.banka1.order.dto.CreateSellOrderRequest;
 import com.banka1.order.dto.OrderResponse;
@@ -10,6 +11,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * REST controller for managing brokerage orders.
@@ -32,8 +37,7 @@ public class OrderController {
     @PreAuthorize("hasRole('CLIENT') or hasRole('ACTUARY')")
     public ResponseEntity<OrderResponse> createBuyOrder(@AuthenticationPrincipal Jwt jwt,
                                                         @RequestBody CreateBuyOrderRequest request) {
-        Long userId = Long.valueOf(jwt.getSubject());
-        OrderResponse response = orderCreationService.createBuyOrder(userId, request);
+        OrderResponse response = orderCreationService.createBuyOrder(toAuthenticatedUser(jwt), request);
         return ResponseEntity.ok(response);
     }
 
@@ -48,8 +52,59 @@ public class OrderController {
     @PreAuthorize("hasRole('CLIENT') or hasRole('ACTUARY')")
     public ResponseEntity<OrderResponse> createSellOrder(@AuthenticationPrincipal Jwt jwt,
                                                          @RequestBody CreateSellOrderRequest request) {
-        Long userId = Long.valueOf(jwt.getSubject());
-        OrderResponse response = orderCreationService.createSellOrder(userId, request);
+        OrderResponse response = orderCreationService.createSellOrder(toAuthenticatedUser(jwt), request);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{id}/confirm")
+    @PreAuthorize("hasRole('CLIENT') or hasRole('ACTUARY')")
+    public ResponseEntity<OrderResponse> confirmOrder(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return ResponseEntity.ok(orderCreationService.confirmOrder(toAuthenticatedUser(jwt), id));
+    }
+
+    @PostMapping("/{id}/cancel")
+    @PreAuthorize("hasRole('CLIENT') or hasRole('ACTUARY')")
+    public ResponseEntity<OrderResponse> cancelOrder(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return ResponseEntity.ok(orderCreationService.cancelOrder(toAuthenticatedUser(jwt), id));
+    }
+
+    @PostMapping("/{id}/approve")
+    @PreAuthorize("hasRole('SUPERVISOR')")
+    public ResponseEntity<OrderResponse> approveOrder(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return ResponseEntity.ok(orderCreationService.approveOrder(Long.valueOf(jwt.getSubject()), id));
+    }
+
+    @PostMapping("/{id}/decline")
+    @PreAuthorize("hasRole('SUPERVISOR')")
+    public ResponseEntity<OrderResponse> declineOrder(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return ResponseEntity.ok(orderCreationService.declineOrder(Long.valueOf(jwt.getSubject()), id));
+    }
+
+    private AuthenticatedUser toAuthenticatedUser(Jwt jwt) {
+        return new AuthenticatedUser(
+                Long.valueOf(jwt.getSubject()),
+                extractStrings(jwt.getClaim("roles")),
+                extractStrings(jwt.getClaim("permissions"))
+        );
+    }
+
+    @SuppressWarnings("unchecked")
+    private Set<String> extractStrings(Object claim) {
+        if (claim == null) {
+            return Set.of();
+        }
+        if (claim instanceof String value) {
+            return Set.of(value);
+        }
+        if (claim instanceof Collection<?> values) {
+            Set<String> result = new LinkedHashSet<>();
+            for (Object value : values) {
+                if (value != null) {
+                    result.add(String.valueOf(value));
+                }
+            }
+            return result;
+        }
+        return Set.of(String.valueOf(claim));
     }
 }

@@ -1,8 +1,10 @@
 package com.banka1.order.dto;
 
+import com.banka1.order.entity.enums.ListingType;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 /**
  * DTO representing a security listing as returned by the stock-service.
@@ -27,4 +29,14 @@ public class StockListingDto {
     private Long exchangeId;
     /** Number of units per contract. */
     private Integer contractSize;
+    /** Listing category used for margin and portfolio handling. */
+    private ListingType listingType;
+    /** Current market volume available for simulation purposes. */
+    private Long volume;
+    /** Settlement date, when provided by stock-service. */
+    private LocalDate settlementDate;
+    /** Optional underlying spot price used for option margin calculation. */
+    private BigDecimal underlyingPrice;
+    /** Optional maintenance margin coming directly from stock-service. */
+    private BigDecimal maintenanceMargin;
 }
