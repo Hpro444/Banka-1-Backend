@@ -1,7 +1,9 @@
 package com.banka1.stock_service.service;
 
+import com.banka1.stock_service.config.ForexPairSeedProperties;
 import com.banka1.stock_service.config.FuturesContractSeedProperties;
 import com.banka1.stock_service.config.StockExchangeSeedProperties;
+import com.banka1.stock_service.dto.ForexPairImportResponse;
 import com.banka1.stock_service.dto.FuturesContractImportResponse;
 import com.banka1.stock_service.dto.StockExchangeImportResponse;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +14,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * Startup runner that seeds reference data from the configured CSV files.
+ *
+ * <p>The current startup flow can import stock exchanges, futures contracts,
+ * and FX pairs independently, based on their dedicated feature flags.
  */
 @Slf4j
 @Component
@@ -20,11 +25,14 @@ public class SeedRunner implements ApplicationRunner {
 
     private final StockExchangeCsvImportService stockExchangeCsvImportService;
     private final FuturesContractCsvImportService futuresContractCsvImportService;
+    private final ForexPairCsvImportService forexPairCsvImportService;
     private final StockExchangeSeedProperties stockExchangeSeedProperties;
     private final FuturesContractSeedProperties futuresContractSeedProperties;
+    private final ForexPairSeedProperties forexPairSeedProperties;
 
     /**
-     * Imports stock exchanges and futures contracts on startup when their seed features are enabled.
+     * Imports stock exchanges, futures contracts, and FX pairs on startup
+     * when their seed features are enabled.
      *
      * @param args application startup arguments
      */
@@ -56,6 +64,20 @@ public class SeedRunner implements ApplicationRunner {
             );
         } else {
             log.info("Futures contract CSV seeding is disabled.");
+        }
+
+        if (forexPairSeedProperties.enabled()) {
+            ForexPairImportResponse importResponse = forexPairCsvImportService.importFromConfiguredCsv();
+            log.info(
+                    "FX pairs imported from {}. processedRows={}, createdCount={}, updatedCount={}, unchangedCount={}",
+                    importResponse.source(),
+                    importResponse.processedRows(),
+                    importResponse.createdCount(),
+                    importResponse.updatedCount(),
+                    importResponse.unchangedCount()
+            );
+        } else {
+            log.info("FX pair CSV seeding is disabled.");
         }
     }
 }

@@ -8,6 +8,7 @@ The service currently provides:
 - PostgreSQL connectivity and Liquibase bootstrap migrations
 - persisted stock exchange reference data with CSV import support
 - persisted futures contract reference data with CSV import support
+- persisted FX pair reference data with CSV import support
 - stock exchange work-time/status endpoints
 - JWT authentication through `security-lib`
 - observability integration through `company-observability-starter`
@@ -35,8 +36,10 @@ The service uses:
 - `StockExchange` JPA entity and repository
 - `Stock` JPA entity and repository
 - `FuturesContract` JPA entity and repository
+- `ForexPair` JPA entity and repository
 - startup/admin CSV import flow for stock exchange reference data
 - startup CSV import flow for futures contract reference data
+- startup CSV import flow for FX pair reference data
 - stock exchange listing and market-status API
 - stock exchange active-toggle endpoint for testing
 - timezone/session-based market-phase calculation
@@ -61,6 +64,7 @@ That means:
 - stock exchange reference data can be imported from CSV into the database
 - stock instrument metadata can now be persisted as a dedicated `stock` entity
 - futures contract metadata can now be persisted as a dedicated `futures_contract` entity
+- FX pair metadata can now be persisted as a dedicated `forex_pair` entity
 - stock exchange work-time checks are implemented
 - holiday support is intentionally left behind an interface and currently uses a no-op stub
 
@@ -72,8 +76,8 @@ The most important parts of the service are:
 - `security` JWT configuration for the resource server
 - `client` adapter for calling `exchange-service`
 - `controller` bootstrap REST endpoints
-- `repository` persistence access for stock exchanges, stocks, and futures contracts
-- `domain` persisted stock exchange, stock, and futures contract entities with derived calculations
+- `repository` persistence access for stock exchanges, stocks, futures contracts, and FX pairs
+- `domain` persisted stock exchange, stock, futures contract, and FX pair entities with derived calculations
 - `service` CSV import, startup seeding, holiday abstraction, and market-status logic
 - `dto` request/response models for internal responses
 
@@ -256,6 +260,7 @@ The stock-service schema currently includes:
 - `src/main/resources/db/changelog/002-create-stock-exchange.sql`
 - `src/main/resources/db/changelog/003-create-stock.sql`
 - `src/main/resources/db/changelog/004-create-futures-contract.sql`
+- `src/main/resources/db/changelog/005-create-forex-pair.sql`
 
 The `stock_exchange` table stores exchange metadata and trading sessions used by the CSV import flow.
 
@@ -274,6 +279,14 @@ The `futures_contract` table stores:
 - contract unit
 - settlement date
 
+The `forex_pair` table stores:
+
+- unique ticker
+- base currency
+- quote currency
+- exchange rate
+- liquidity classification
+
 Derived values are intentionally kept in the Java domain model instead of being persisted:
 
 - `contractSize` is a constant with value `1`
@@ -283,6 +296,12 @@ Derived values are intentionally kept in the Java domain model instead of being 
 For `futures_contract`:
 
 - `maintenanceMargin(price)` is calculated as `contractSize * price * 0.10`
+
+For `forex_pair`:
+
+- `contractSize` is a constant with value `1000`
+- `nominalValue()` is calculated as `contractSize * exchangeRate`
+- `maintenanceMargin()` is calculated as `contractSize * exchangeRate * 0.10`
 
 Liquibase scripts are located in:
 
@@ -348,6 +367,7 @@ JWT_SECRET=local_stock_dev_secret_at_least_32_chars
 STOCK_EXCHANGE_SERVICE_URL=http://localhost:8085
 STOCK_EXCHANGE_SEED_CSV_LOCATION=classpath:seed/exchanges.csv
 STOCK_FUTURES_SEED_CSV_LOCATION=classpath:seed/futures_seed.csv
+STOCK_FOREX_SEED_CSV_LOCATION=classpath:seed/forex_pairs_seed.csv
 STOCK_MARKET_DATA_BASE_URL=https://api.twelvedata.com
 STOCK_MARKET_DATA_API_KEY=replace_with_provider_api_key
 ```
@@ -367,6 +387,8 @@ Most important properties:
 | `stock.exchange-seed.csv-location` | Spring resource location of the stock exchange CSV seed file |
 | `stock.futures-seed.enabled` | enables or disables automatic CSV seeding of futures contracts on startup |
 | `stock.futures-seed.csv-location` | Spring resource location of the futures contract CSV seed file |
+| `stock.forex-seed.enabled` | enables or disables automatic CSV seeding of FX pairs on startup |
+| `stock.forex-seed.csv-location` | Spring resource location of the FX pair CSV seed file |
 | `stock.market-data.base-url` | base URL for the external stock market data provider |
 | `stock.market-data.api-key` | API key for the external market data provider |
 | `stock.market-data.default-exchange` | default exchange for future stock queries |
@@ -381,10 +403,11 @@ When the service starts, it:
 4. lets Liquibase validate and execute migrations if needed
 5. imports stock exchange reference data from the configured CSV file if seeding is enabled
 6. imports futures contract reference data from the configured CSV file if seeding is enabled
-7. registers the JWT decoder and security filter chain from `security-lib`
-8. registers the `RestClient` bean for `exchange-service`
-9. exposes the stock exchange REST endpoints
-10. exposes the actuator health endpoints
+7. imports FX pair reference data from the configured CSV file if seeding is enabled
+8. registers the JWT decoder and security filter chain from `security-lib`
+9. registers the `RestClient` bean for `exchange-service`
+10. exposes the stock exchange REST endpoints
+11. exposes the actuator health endpoints
 
 ## CSV Seed Format
 
@@ -437,6 +460,28 @@ Supported `Contract Unit` values are:
 - `Barrel`
 
 `Settlement Date` must be in ISO format `yyyy-MM-dd`.
+
+The FX pair seed file is:
+
+- `src/main/resources/seed/forex_pairs_seed.csv`
+
+It uses this format:
+
+- `Ticker`
+- `Base Currency`
+- `Quote Currency`
+- `Exchange Rate`
+- `Liquidity`
+
+`Base Currency` and `Quote Currency` must be ISO currency codes like `EUR` or `USD`.
+
+`Exchange Rate` must be a positive decimal value.
+
+Supported `Liquidity` values are:
+
+- `HIGH`
+- `MEDIUM`
+- `LOW`
 
 ## Local Development
 
@@ -530,6 +575,7 @@ Note:
 - unit tests also cover market-phase calculation and controller security for the new stock exchange endpoints
 - unit tests now also cover the new `Stock` entity derived calculations and JPA/Liquibase persistence mapping
 - unit tests now also cover futures contract CSV import, derived maintenance margin, and JPA/Liquibase persistence mapping
+- unit tests now also cover FX pair CSV import, derived nominal value and maintenance margin, and JPA/Liquibase persistence mapping
 - the tests do not start the full application stack
 
 ## Swagger and OpenAPI
