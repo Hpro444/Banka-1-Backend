@@ -8,44 +8,44 @@ import com.banka1.transaction_service.dto.response.UpdatedBalanceResponseDto;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 /**
- * Interni interfejs koji definiše operacije upravljanja životnim ciklom transakcije.
- * Koristi se internally za kreiranje i završetak transakcija sa notifikacijama.
+ * Internal interface that defines operations for managing the transaction lifecycle.
+ * Used internally for creating and finishing transactions with notifications.
  */
 public interface TransactionServiceInternal {
 
     /**
-     * Kreira novu transakciju u bazi podataka sa svim relevantnim detaljima.
+     * Creates a new transaction in the database with all relevant details.
      * <p>
-     * Ova metoda:
+     * This method:
      * <ul>
-     *   <li>Kreira Payment entitet sa svim podacima iz DTO-a</li>
-     *   <li>Postavlja status na IN_PROGRESS</li>
-     *   <li>Generiše jedinstveni redni broj kao "BANKA1-{id}"</li>
-     *   <li>Čuva u bazi i vraća ID</li>
+     *   <li>Creates a Payment entity with all data from the DTO</li>
+     *   <li>Sets the status to IN_PROGRESS</li>
+     *   <li>Generates a unique serial number as "BANKA1-{id}"</li>
+     *   <li>Saves to the database and returns the ID</li>
      * </ul>
      *
-     * @param jwt JWT token korisnika koji inicira transakciju
-     * @param newPaymentDto DTO sa detaljima plaćanja
-     * @param infoResponseDto informacije o računima (vlasnici, valute, email)
-     * @param conversionResponseDto rezultat devizne konverzije (iznos, kurs, komisija)
-     * @return ID novo kreirane Payment entiteta
+     * @param jwt JWT token of the user initiating the transaction
+     * @param newPaymentDto DTO with payment details
+     * @param infoResponseDto information about accounts (owners, currencies, email)
+     * @param conversionResponseDto result of currency conversion (amount, rate, commission)
+     * @return ID of the newly created Payment entity
      */
     Long create(Jwt jwt, NewPaymentDto newPaymentDto, InfoResponseDto infoResponseDto, ConversionResponseDto conversionResponseDto);
 
     /**
-     * Završava transakciju sa finalnim statusom i šalje email notifikaciju.
+     * Finishes a transaction with a final status and sends an email notification.
      * <p>
-     * Ova metoda:
+     * This method:
      * <ul>
-     *   <li>Ažurira status transakcije na COMPLETED ili DENIED</li>
-     *   <li>Registruje TransactionSynchronization callback</li>
-     *   <li>Nakon commit-a, šalje RabbitMQ poruku za email notifikaciju</li>
+     *   <li>Updates the transaction status to COMPLETED or DENIED</li>
+     *   <li>Registers a TransactionSynchronization callback</li>
+     *   <li>After commit, sends a RabbitMQ message for email notification</li>
      * </ul>
      *
-     * @param jwt JWT token korisnika
-     * @param infoResponseDto informacije o pošiljaocu (email, username)
-     * @param id ID Payment entiteta koji se završava
-     * @param transactionStatus finalni status transakcije (COMPLETED ili DENIED)
+     * @param jwt JWT token of the user
+     * @param infoResponseDto information about the sender (email, username)
+     * @param id ID of the Payment entity to finish
+     * @param transactionStatus final status of the transaction (COMPLETED or DENIED)
      */
     void finish(Jwt jwt, InfoResponseDto infoResponseDto, Long id, TransactionStatus transactionStatus);
 }

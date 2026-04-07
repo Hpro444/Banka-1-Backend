@@ -6,31 +6,29 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 /**
- * REST klijent za komunikaciju sa Verification Service-om.
- * Obezbeđuje operacije za proveravanje statusa 2FA verifikacije korisnika.
+ * REST client for interacting with the Verification Service.
+ * Provides methods for verifying user actions.
  */
 @Service
 public class VerificationService {
 
-    /** REST klijent sa JWT autentifikacijom */
+    /** REST client with JWT authentication */
     private final RestClient restClient;
 
     /**
-     * Konstruktor koji injektuje REST klijenta za Verification Service.
+     * Constructor that injects the REST client for the Verification Service.
      *
-     * @param restClient konfigurisan REST klijent
+     * @param restClient configured REST client
      */
     public VerificationService(@Qualifier("verificationClient") RestClient restClient) {
         this.restClient = restClient;
     }
 
     /**
-     * Preuzima status verifikacijske sesije.
-     * <p>
-     * Koristi se da se proveri da li je korisnik uspešno prošao 2FA verifikaciju.
+     * Verifies a user action based on the provided verification ID.
      *
-     * @param sessionId ID verifikacijske sesije
-     * @return status sesije sa informacijom da li je verifikovana
+     * @param sessionId the ID of the verification session
+     * @return the verification status response
      */
     public VerificationStatusResponse getStatus(Long sessionId) {
         return restClient.get()

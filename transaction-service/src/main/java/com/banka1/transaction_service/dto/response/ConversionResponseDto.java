@@ -4,18 +4,17 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * DTO odgovora za endpoint kalkulacije ekvivalencije valuta.
- * Vraća detaljne rezultate konverzije uključujući konvertovani iznos, kurs i komisiju.
+ * DTO representing the result of a currency conversion.
+ * Contains details about the conversion process and the resulting amounts.
  *
- * @param fromCurrency izvorna valuta (npr. "RSD")
- * @param toCurrency ciljna valuta (npr. "EUR")
- * @param fromAmount originalni iznos iz zahteva
- * @param toAmount preračunati iznos u ciljnoj valuti
- * @param rate efektivni kurs konverzije (toAmount / fromAmount)
- * @param commission obračunata provizija u izvornoj valuti
- * @param date datum kursne liste koji je korišćen u obračunu
+ * @param fromCurrency Source currency code.
+ * @param toCurrency Target currency code.
+ * @param fromAmount Amount in the source currency.
+ * @param toAmount Amount in the target currency.
+ * @param rate Conversion rate applied.
+ * @param commission Calculated commission in the source currency.
+ * @param date Date of the conversion.
  */
-
 public record ConversionResponseDto(
         String fromCurrency,
         String toCurrency,

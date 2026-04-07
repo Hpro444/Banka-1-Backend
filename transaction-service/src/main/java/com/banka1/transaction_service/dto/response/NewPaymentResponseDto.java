@@ -4,17 +4,17 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * DTO odgovora nakon kreiranja novog plaćanja.
- * Sadrži poruku i status plaćanja.
+ * DTO representing the response for a new payment transaction.
+ * Contains details about the created payment.
  */
 @Getter
 @AllArgsConstructor
 public class NewPaymentResponseDto {
 
-    /** Odgovorna poruka za klijenta o rezultatu plaćanja */
+    /** Unique identifier of the created payment. */
     private String message;
 
-    /** Status plaćanja: COMPLETED, DENIED ili IN_PROGRESS */
+    /** Status of the created payment. */
     private String status;
 }
 

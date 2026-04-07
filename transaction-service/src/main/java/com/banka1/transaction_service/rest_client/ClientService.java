@@ -6,24 +6,24 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 /**
- * REST klijent za komunikaciju sa korisnikom/client servisom.
- * Obezbeđuje metode za pronalaženje i upravljanje klijentima.
+ * REST client for interacting with the Client Service.
+ * Provides methods for retrieving client information.
  */
 @Service
 public class ClientService {
 
-    /** REST klijent sa JWT autentifikacijom */
+    /** REST client with JWT authentication */
     private final RestClient restClient;
 
     /**
-     * Konstruktor koji injektuje REST klijenta za User/Client Service.
+     * Constructor that injects the REST client for the User/Client Service.
      *
-     * @param restClient konfigurisan REST klijent
+     * @param restClient configured REST client
      */
     public ClientService(@Qualifier("userClient") RestClient restClient) {
         this.restClient = restClient;
     }
 
-    // TODO: Dodati metode za pronalaženje korisnika po JMBG-u i ID-u
+    // TODO: Add methods for finding users by JMBG and ID
 
 }

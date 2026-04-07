@@ -9,8 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 /**
- * REST klijent za komunikaciju sa Account Service-om.
- * Obezbeđuje metode za preuzimanje informacija o računima i izvršavanje transfera.
+ * REST client for interacting with the Account Service.
+ * Provides methods for retrieving and updating account information.
  */
 @Service
 public class AccountService {
@@ -18,20 +18,20 @@ public class AccountService {
     private final RestClient restClient;
 
     /**
-     * Konstruktor koji injektuje REST klijenta za Account Service.
+     * Constructor that injects the REST client for the Account Service.
      *
-     * @param restClient konfigurisan REST klijent sa JWT autentifikacijom
+     * @param restClient configured REST client with JWT authentication
      */
     public AccountService(@Qualifier("accountClient") RestClient restClient) {
         this.restClient = restClient;
     }
 
     /**
-     * Preuzima informacije o dve račune neophodne za transakciju.
+     * Retrieves information about two accounts necessary for a transaction.
      *
-     * @param fromBankNumber broj polaznog računa
-     * @param toBankNumber broj odredišnog računa
-     * @return informacije o oba računa (valute, vlasnici, kontakt podaci)
+     * @param fromBankNumber the source account number
+     * @param toBankNumber the destination account number
+     * @return information about both accounts (currencies, owners, contact details)
      */
     public InfoResponseDto getInfo(String fromBankNumber, String toBankNumber) {
         return restClient.get()
@@ -45,10 +45,10 @@ public class AccountService {
     }
 
     /**
-     * Izvršava transfer novca između dva računa istog vlasnika.
+     * Executes a money transfer between two accounts of the same owner.
      *
-     * @param paymentDto DTO sa detaljima transfera
-     * @return ažurirana stanja oba računa
+     * @param paymentDto DTO with transfer details
+     * @return updated balances of both accounts
      */
     public UpdatedBalanceResponseDto transfer(PaymentDto paymentDto) {
         return restClient.post()
@@ -59,10 +59,10 @@ public class AccountService {
     }
 
     /**
-     * Izvršava transakciju novca između dva računa različitih vlasnika.
+     * Executes a money transaction between two accounts of different owners.
      *
-     * @param paymentDto DTO sa detaljima transakcije
-     * @return ažurirana stanja oba računa
+     * @param paymentDto DTO with transaction details
+     * @return updated balances of both accounts
      */
     public UpdatedBalanceResponseDto transaction(PaymentDto paymentDto) {
         return restClient.post()
@@ -73,10 +73,10 @@ public class AccountService {
     }
 
     /**
-     * Preuzima detaljne informacije o specifičnom računu.
+     * Retrieves account details by account number.
      *
-     * @param accountNumber broj računa
-     * @return detaljne informacije o računu uključujući ID vlasnika
+     * @param accountNumber the account number to retrieve details for
+     * @return the account details response
      */
     public AccountDetailsResponseDto getDetails(String accountNumber)
     {

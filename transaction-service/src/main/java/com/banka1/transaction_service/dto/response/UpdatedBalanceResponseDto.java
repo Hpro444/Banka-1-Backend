@@ -7,16 +7,17 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 /**
- * DTO odgovora sa ažuriranim stanjem na računima nakon transakcije.
+ * DTO representing the response for an updated account balance.
+ * Contains details about the account and the new balance.
  */
 @Getter
 @Setter
 @AllArgsConstructor
 public class UpdatedBalanceResponseDto {
 
-    /** Novo stanje na računu pošiljaoca nakon transakcije */
+    /** New balance of the sender's account after the transaction */
     private BigDecimal senderBalance;
 
-    /** Novo stanje na računu primaoca nakon transakcije */
+    /** New balance of the receiver's account after the transaction */
     private BigDecimal receiverBalance;
 }

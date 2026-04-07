@@ -30,11 +30,8 @@ import java.time.LocalDateTime;
 
 
 /**
- * REST kontroler za upravljanje transakcijama i transferima novca.
- * Obezbeđuje endpoint-e za klijente da kreiraju nove plaćanja i pregledavaju
- * istoriju svojih transakcija.
- * <p>
- * Zahteva autentifikaciju preko JWT tokena sa odgovarajućim ulogama.
+ * REST controller for managing transactions.
+ * Provides endpoints for creating, retrieving, and searching transactions.
  */
 @RestController
 @AllArgsConstructor
@@ -43,19 +40,11 @@ public class TransactionController {
     private TransactionService transactionService;
 
     /**
-     * Kreira novu transakciju (plaćanje) između dva računa.
-     * <p>
-     * Provera uključuje:
-     * <ul>
-     *   <li>Verifikaciju klijenta preko koda (ako je uključena)</li>
-     *   <li>Proveravanje postojanja računa</li>
-     *   <li>Izračunavanje deviznog kursa i komisije</li>
-     *   <li>Pokušaj izvršavanja transfera sa 3 pokušaja</li>
-     * </ul>
+     * Creates a new transaction.
      *
-     * @param jwt JWT token autentifikovanog korisnika
-     * @param newPaymentDto DTO sa detaljima plaćanja
-     * @return odgovor sa statusom plaćanja i porukom
+     * @param jwt JWT token of the authenticated user
+     * @param newPaymentDto the details of the new payment
+     * @return the response containing the status and message of the created payment
      */
     @Operation(summary = "Create a new payment")
     @ApiResponses({
@@ -80,16 +69,13 @@ public class TransactionController {
 
 
     /**
-     * Preuzima sve transakcije za određeni korisnički račun.
-     * <p>
-     * Samo vlasnik računa ili zaposleni sa odgovarajućom ulogom mogu pristupiti ovom endpoint-u.
-     * Rezultati su paginisani i sortiran po datumu kreiranja (najnovije prvo).
+     * Retrieves all transactions for a specific account.
      *
-     * @param jwt JWT token autentifikovanog korisnika
-     * @param accountNumber broj računa čije transakcije treba preuzeti
-     * @param page redni broj stranice (počinje od 0)
-     * @param size broj stavki po stranici
-     * @return paginirana lista transakcija za dati račun
+     * @param jwt JWT token of the authenticated user
+     * @param accountNumber the account number to retrieve transactions for
+     * @param page page number (starting from 0)
+     * @param size number of items per page
+     * @return a paginated list of transactions
      */
     @Operation(summary = "Get account transactions")
     @ApiResponses({
@@ -110,34 +96,21 @@ public class TransactionController {
 
         return new ResponseEntity<>(transactionService.findAllTransactions(jwt,accountNumber,page,size), HttpStatus.OK);
     }
-
-
     /**
-     * Preuzima transakcije sa naprednom filtracijom i pretraživanjem.
-     * <p>
-     * Omogućava filtiranje po:
-     * <ul>
-     *   <li>Broju računa (polaznog ili odredišnog)</li>
-     *   <li>Statusu transakcije</li>
-     *   <li>Vremenskom periodu</li>
-     *   <li>Rasponu iznosa</li>
-     * </ul>
-     * <p>
-     * Samo ADMIN korisnici mogu videti sve transakcije. Ostali korisnici
-     * mogu videti samo transakcije gde su vlasnici računa.
+     * Searches for transactions based on various criteria.
      *
-     * @param jwt JWT token autentifikovanog korisnika
-     * @param accountNumber broj računa za filtriranje (opciono)
-     * @param status status transakcije kao string (opciono, konvertuje se u enum)
-     * @param fromDate početna datuma za period (opciono)
-     * @param toDate krajnja datuma za period (opciono)
-     * @param initialAmountMin minimalni početni iznos (opciono)
-     * @param initialAmountMax maksimalni početni iznos (opciono)
-     * @param finalAmountMin minimalni finalni iznos (opciono)
-     * @param finalAmountMax maksimalni finalni iznos (opciono)
-     * @param page redni broj stranice
-     * @param size broj stavki po stranici
-     * @return filtrirana i paginirana lista transakcija
+     * @param jwt JWT token of the authenticated user
+     * @param accountNumber account number to filter (optional)
+     * @param status transaction status as a string (optional, converts to enum)
+     * @param fromDate start date for the period (optional)
+     * @param toDate end date for the period (optional)
+     * @param initialAmountMin minimum initial amount (optional)
+     * @param initialAmountMax maximum initial amount (optional)
+     * @param finalAmountMin minimum final amount (optional)
+     * @param finalAmountMax maximum final amount (optional)
+     * @param page page number
+     * @param size number of items per page
+     * @return a paginated list of transactions matching the criteria
      */
     @GetMapping("/api/payments")
     //todo proveriti da li uospte treba za BASIC(EMPLOYEE_BASIC)

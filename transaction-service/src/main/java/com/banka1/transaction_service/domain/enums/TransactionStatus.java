@@ -1,20 +1,20 @@
 package com.banka1.transaction_service.domain.enums;
 
 /**
- * Enum koji predstavlja moguće statuse finansijske transakcije tokom njene životnog ciklusa.
+ * Enum representing the status of a transaction.
  * <p>
- * Statusi mogu biti:
+ * Possible values:
  * <ul>
- *   <li>IN_PROGRESS - Transakcija je prihvaćena i u procesu izvršavanja</li>
- *   <li>COMPLETED - Transakcija je uspešno izvršena</li>
- *   <li>DENIED - Transakcija je odbijena ili nije mogla biti izvršena</li>
+ *   <li>IN_PROGRESS - Transaction is currently being processed</li>
+ *   <li>COMPLETED - Transaction has been successfully completed</li>
+ *   <li>DENIED - Transaction has been denied or could not be completed</li>
  * </ul>
  */
 public enum TransactionStatus {
-    /** Transakcija je prihvaćena i u procesu izvršavanja */
+    /** Transaction is currently being processed */
     IN_PROGRESS,
-    /** Transakcija je uspešno izvršena */
+    /** Transaction has been successfully completed */
     COMPLETED,
-    /** Transakcija je odbijena ili nije mogla biti izvršena */
+    /** Transaction has been denied or could not be completed */
     DENIED
 }

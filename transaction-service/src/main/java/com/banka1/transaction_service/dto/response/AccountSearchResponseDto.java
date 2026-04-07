@@ -1,6 +1,5 @@
 package com.banka1.transaction_service.dto.response;
 
-
 import com.banka1.transaction_service.domain.enums.AccountOwnershipType;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -8,8 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * DTO odgovora za pretragu računa.
- * Koristi se pri pronalaženju računa i pregleda osnovnih informacija o računu.
+ * DTO for searching account details.
+ * Contains information about accounts matching the search criteria.
  */
 @Getter
 @Setter
@@ -17,20 +16,19 @@ import lombok.Setter;
 @AllArgsConstructor
 public class AccountSearchResponseDto {
 
-    /** Broj računa */
+    /** Account number of the matched account. */
     private String brojRacuna;
 
-    /** Ime vlasnika računa */
+    /** Account holder's name. */
     private String ime;
 
-    /** Prezime vlasnika računa */
+    /** Account holder's surname. */
     private String prezime;
 
-    /** Tip vlasništva računa (PERSONAL ili BUSINESS) */
+    /** Account ownership type (PERSONAL or BUSINESS). */
     private AccountOwnershipType accountOwnershipType;
 
-    /** Tip računa - tekući ili devizni */
+    /** Account type (e.g., checking or foreign currency). */
     private String tekuciIliDevizni;
-
 
 }

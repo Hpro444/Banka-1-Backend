@@ -4,19 +4,19 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * Enum koji definiše tipove vlasništva bankarskog računa.
+ * Enum representing the type of account ownership.
  */
 @AllArgsConstructor
 @Getter
 public enum AccountOwnershipType {
 
-    /** Lični račun - vlasnik je fizičko lice */
+    /** Personal account - owner is an individual */
     PERSONAL(21),
 
-    /** Poslovni račun - vlasnik je pravno lice/kompanija */
+    /** Business account - owner is a legal entity/company */
     BUSINESS(22);
 
-    /** Numerička vrednost povezana sa tipom vlasništva */
+    /** Numeric value associated with the ownership type */
     private final int val;
 
 }

@@ -11,11 +11,8 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 /**
- * DTO za zahtev kreiranja novog plaćanja od strane klijenta.
- * <p>
- * Sadrži sve osnovne informacije potrebne za inicijalizovanje transakcije:
- * broja računa pošiljaoca i primaoca, iznos, podatke o primaocu,
- * šifru i svrhu plaćanja, te ID verifikacijske sesije.
+ * DTO for creating a new payment transaction.
+ * Contains all necessary details for initiating a payment.
  */
 @AllArgsConstructor
 @NoArgsConstructor
@@ -23,38 +20,38 @@ import java.math.BigDecimal;
 @Setter
 public class NewPaymentDto {
 
-    /** Broj računa sa kojeg se šalje novac - mora biti 19-cifreni */
+    /** Account number from which the payment is made. */
     @NotBlank(message = "Unesi racun posiljaoca")
     @Pattern(regexp = "^\\d{19}$", message = "Broj racuna mora imati 19 cifara")
     private String fromAccountNumber;
 
-    /** Broj računa na koji se šalje novac - mora biti 19-cifreni */
+    /** Account number to which the payment is made. */
     @NotBlank(message = "Unesi racun primaoca")
     @Pattern(regexp = "^\\d{19}$", message = "Broj racuna mora imati 19 cifara")
     private String toAccountNumber;
 
-    /** Iznos koji se šalje u osnovnoj valuti */
+    /** Amount to be transferred. */
     @NotNull(message = "Unesi iznos")
     private BigDecimal amount;
 
-    /** Ime i prezime primaoca novca */
+    /** Currency code of the source account. */
     @NotBlank(message = "Unesi naziv primaoca")
     private String recipientName;
 
-    /** Šifra plaćanja - mora počinjati sa 2 i imati tačno 3 cifre */
+    /** Payment code for categorization. */
     @NotNull(message = "Unesi sifru placanja")
     @Pattern(regexp = "^2.*", message = "Sifra mora poceti sa 2")
     @Pattern(regexp = "^\\d{3}$", message = "Sifra mora imati tacno 3 cifre")
     private String paymentCode;
 
-    /** Referentni broj plaćanja (opciono - može biti broj i slova) */
+    /** Reference number for the payment (optional - can be alphanumeric). */
     private String referenceNumber;
 
-    /** Svrha/opis plaćanja */
+    /** Purpose of the payment. */
     @NotBlank(message = "Unesi svrhu placanja")
     private String paymentPurpose;
 
-    /** ID verifikacijske sesije koju je klijent prošao */
+    /** ID of the verification session completed by the client. */
     @NotNull(message = "Unesi verification session ID")
     private Long verificationSessionId;
 

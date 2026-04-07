@@ -12,8 +12,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * DTO odgovora za transakciju - vraća se klijentu kod pregleda istorije transakcija.
- * Sadrži sve relevantne informacije o izvršenoj ili izvršavajućoj transakciji.
+ * DTO representing the response for a transaction.
+ * Contains details about the transaction such as amounts, accounts, and status.
  */
 @NoArgsConstructor
 @AllArgsConstructor
@@ -21,52 +21,52 @@ import java.time.LocalDateTime;
 @Setter
 public class TransactionResponseDto {
 
-    /** Jedinstveni redni broj plaćanja u sistemu */
+    /** Unique identifier of the transaction. */
     private String orderNumber;
 
-    /** Broj računa sa kojeg je novac prenet */
+    /** Account number from which the transaction was initiated. */
     private String fromAccountNumber;
 
-    /** Broj računa na koji je novac prenet */
+    /** Account number to which the transaction was directed. */
     private String toAccountNumber;
 
-    /** Početni iznos u izvorenoj valuti */
+    /** Amount involved in the transaction. */
     private BigDecimal initialAmount;
 
-    /** Finalni iznos u ciljnoj valuti */
+    /** Amount involved in the transaction. */
     private BigDecimal finalAmount;
 
-    /** Ime primaoca novca */
+    /** Recipient's name. */
     private String recipientName;
 
-    /** Šifra plaćanja */
+    /** Payment code. */
     private String paymentCode;
 
-    /** Referentni broj plaćanja */
+    /** Reference number for the payment. */
     private String referenceNumber;
 
-    /** Svrha/opis plaćanja */
+    /** Purpose or description of the payment. */
     private String paymentPurpose;
 
-    /** Trenutni status transakcije */
+    /** Status of the transaction. */
     private TransactionStatus status;
 
-    /** Valuta izvorne transakcije */
+    /** Currency code of the transaction. */
     private CurrencyCode fromCurrency;
 
-    /** Valuta odredišne transakcije */
+    /** Currency code of the transaction. */
     private CurrencyCode toCurrency;
 
-    /** Kurs konverzije između valuta */
+    /** Exchange rate between currencies. */
     private BigDecimal exchangeRate;
 
-    /** Vreme kreiranja transakcije */
+    /** Timestamp when the transaction was created. */
     private LocalDateTime createdAt;
 
     /**
-     * Konstruktor za konverziju Payment entiteta u DTO.
+     * Constructor for converting a Payment entity to this DTO.
      *
-     * @param payment Payment entitet iz baze podataka
+     * @param payment Payment entity from the database
      */
     public TransactionResponseDto(Payment payment) {
         this.orderNumber = payment.getOrderNumber();

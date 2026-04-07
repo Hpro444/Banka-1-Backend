@@ -5,19 +5,19 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * Glavna Spring Boot aplikacija za Transaction Service.
- * Omogućava upravljanje finansijskim transakcijama i transferima novca između računa.
+ * Main Spring Boot application for the Transaction Service.
+ * Enables management of financial transactions and money transfers between accounts.
  * <p>
- * Uključuje zakazane taskove putem @EnableScheduling anotacije.
+ * Includes scheduled tasks via the @EnableScheduling annotation.
  */
 @SpringBootApplication
 @EnableScheduling
 public class TransactionServiceApplication {
 
 	/**
-	 * Početna tačka aplikacije.
+	 * Entry point of the application.
 	 *
-	 * @param args argumenti komandne linije prosleđeni aplikaciji
+	 * @param args command-line arguments passed to the application
 	 */
 	public static void main(String[] args) {
 		SpringApplication.run(TransactionServiceApplication.class, args);

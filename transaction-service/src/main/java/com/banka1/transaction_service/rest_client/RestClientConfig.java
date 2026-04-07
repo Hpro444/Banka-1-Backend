@@ -7,14 +7,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
 /**
- * Spring konfiguracija REST klijenta za komunikaciju sa ostalim mikservisima.
- * Konfigurira RestClient bean-ove sa JWT autentifikacijom za različite servise.
+ * Configuration class for REST clients.
+ * Provides beans for configuring REST templates and interceptors.
  */
 @Configuration
 public class RestClientConfig {
 
     /**
-     * Kreira RestClient builder bean.
+     * Creates a bean for the RestTemplate with JWT authentication interceptor.
      *
      * @return RestClient builder
      */
@@ -24,12 +24,12 @@ public class RestClientConfig {
     }
 
     /**
-     * Kreira REST klijent za User/Client Service sa JWT autentifikacijom.
+     * Creates a REST client for the User/Client Service with JWT authentication.
      *
      * @param builder RestClient builder
-     * @param baseUrl URL baznog servisa iz konfiguracije
-     * @param jwtService servis za generisanje JWT tokena
-     * @return konfigurisan REST klijent
+     * @param baseUrl Base service URL from configuration
+     * @param jwtService Service for generating JWT tokens
+     * @return configured REST client
      */
     @Bean
     public RestClient userClient(
@@ -44,12 +44,12 @@ public class RestClientConfig {
     }
 
     /**
-     * Kreira REST klijent za Verification Service sa JWT autentifikacijom.
+     * Creates a REST client for the Verification Service with JWT authentication.
      *
      * @param builder RestClient builder
-     * @param baseUrl URL baznog servisa iz konfiguracije
-     * @param jwtService servis za generisanje JWT tokena
-     * @return konfigurisan REST klijent
+     * @param baseUrl Base service URL from configuration
+     * @param jwtService Service for generating JWT tokens
+     * @return configured REST client
      */
     @Bean
     public RestClient verificationClient(
@@ -64,12 +64,12 @@ public class RestClientConfig {
     }
 
     /**
-     * Kreira REST klijent za Exchange Service sa JWT autentifikacijom.
+     * Creates a REST client for the Exchange Service with JWT authentication.
      *
      * @param builder RestClient builder
-     * @param baseUrl URL baznog servisa iz konfiguracije
-     * @param jwtService servis za generisanje JWT tokena
-     * @return konfigurisan REST klijent
+     * @param baseUrl Base service URL from configuration
+     * @param jwtService Service for generating JWT tokens
+     * @return configured REST client
      */
     @Bean
     public RestClient exchangeClient(
@@ -84,12 +84,12 @@ public class RestClientConfig {
     }
 
     /**
-     * Kreira REST klijent za Account Service sa JWT autentifikacijom.
+     * Creates a REST client for the Account Service with JWT authentication.
      *
      * @param builder RestClient builder
-     * @param baseUrl URL baznog servisa iz konfiguracije
-     * @param jwtService servis za generisanje JWT tokena
-     * @return konfigurisan REST klijent
+     * @param baseUrl Base service URL from configuration
+     * @param jwtService Service for generating JWT tokens
+     * @return configured REST client
      */
     @Bean
     public RestClient accountClient(

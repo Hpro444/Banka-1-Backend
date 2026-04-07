@@ -24,9 +24,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * REST kontroler za pregled transakcija - namenjen zaposlenima.
- * Omogućava zaposlenima sa odgovarajućim ulogama da pregledu sve transakcije
- * na određenom računu bez obzira na vlasnika.
+ * REST controller for managing employee-related operations.
+ * Provides endpoints for retrieving employee-specific data.
  */
 @RestController
 @AllArgsConstructor
@@ -36,16 +35,13 @@ public class EmployeeController {
     private TransactionService transactionService;
 
     /**
-     * Preuzima sve transakcije za određeni račun (zaposlenski pristup).
-     * <p>
-     * Dostupno je samo zaposlenima sa ulogama: ADMIN, SUPERVISOR, AGENT ili BASIC.
-     * Za razliku od klijentskog pristupa, zaposleni mogu videti bilo koji račun.
+     * Retrieves all transactions for a specific account accessible by an employee.
      *
-     * @param jwt JWT token autentifikovanog zaposlenog
-     * @param accountNumber broj računa čije transakcije treba preuzeti
-     * @param page redni broj stranice (počinje od 0)
-     * @param size broj stavki po stranici
-     * @return paginirana lista transakcija za dati račun
+     * @param jwt JWT token of the authenticated employee
+     * @param accountNumber the account number to retrieve transactions for
+     * @param page page number (starting from 0)
+     * @param size number of items per page
+     * @return a paginated list of transactions
      */
     @Operation(summary = "Get all transactions for an account (employee access")
     @ApiResponses({

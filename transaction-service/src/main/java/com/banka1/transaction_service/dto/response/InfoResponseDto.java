@@ -7,8 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * DTO sa informacijama o računima za transakciju.
- * Sadrži podatke o valutama, vlasnicima i kontakt informacijama.
+ * DTO representing general information about a transaction.
+ * Contains details such as transaction ID, status, and timestamps.
  */
 @AllArgsConstructor
 @Getter
@@ -16,21 +16,21 @@ import lombok.Setter;
 @NoArgsConstructor
 public class InfoResponseDto {
 
-    /** Valuta izvorne transakcije */
+    /** Currency code of the source transaction */
     private CurrencyCode fromCurrencyCode;
 
-    /** Valuta odredišne transakcije */
+    /** Currency code of the destination transaction */
     private CurrencyCode toCurrencyCode;
 
-    /** ID vlasnika izvorne transakcije */
+    /** ID of the owner of the source transaction */
     private Long fromVlasnik;
 
-    /** ID vlasnika odredišne transakcije */
+    /** ID of the owner of the destination transaction */
     private Long toVlasnik;
 
-    /** Email adresa vlasnika izvorne transakcije */
+    /** Email address of the owner of the source transaction */
     private String fromEmail;
 
-    /** Korisničko ime vlasnika izvorne transakcije */
+    /** Username of the owner of the source transaction */
     private String fromUsername;
 }

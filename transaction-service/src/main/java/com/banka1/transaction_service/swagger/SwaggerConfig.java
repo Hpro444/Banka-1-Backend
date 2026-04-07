@@ -9,23 +9,16 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Spring konfiguracija za OpenAPI (Swagger) dokumentaciju.
- * Konfigurira OpenAPI specifikaciju sa JWT Bearer token autentifikacijom.
+ * Configuration class for Swagger API documentation.
+ * Provides a bean for configuring the OpenAPI specification.
  */
 @Configuration
 public class SwaggerConfig {
 
     /**
-     * Kreira OpenAPI bean sa osnovnom informacijom o servisu i JWT sigurnosnom šemom.
-     * <p>
-     * OpenAPI spec se može pregledati na:
-     * <ul>
-     *   <li>Swagger UI: /swagger-ui.html</li>
-     *   <li>OpenAPI JSON: /v3/api-docs</li>
-     *   <li>OpenAPI YAML: /v3/api-docs.yaml</li>
-     * </ul>
+     * Creates a bean for the OpenAPI specification.
      *
-     * @return konfigurisani OpenAPI bean
+     * @return the OpenAPI specification bean
      */
     @Bean
     public OpenAPI openAPI() {

@@ -13,56 +13,56 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Interfejs koji definiše poslovnu logiku za upravljanje transakcijama.
- * Obezbeđuje operacije za kreiranje, pregled i filtriranje plaćanja.
+ * Service interface for managing transactions.
+ * Provides methods for creating, finding, and searching transactions.
  */
 public interface TransactionService {
 
     /**
-     * Kreira novu transakciju (plaćanje) između dva računa.
+     * Creates a new transaction (payment) between two accounts.
      *
-     * @param jwt JWT token autentifikovanog korisnika
-     * @param newPaymentDto DTO sa detaljima novog plaćanja
-     * @return odgovor sa statusom i porukom o plaćanju
+     * @param jwt JWT token of the authenticated user
+     * @param newPaymentDto DTO with new payment details
+     * @return response with status and payment message
      */
     NewPaymentResponseDto newPayment(Jwt jwt, NewPaymentDto newPaymentDto);
 
     /**
-     * Preuzima sve transakcije za specifičan račun autentifikovanog korisnika.
+     * Retrieves all transactions for a specific account of the authenticated user.
      *
-     * @param jwt JWT token autentifikovanog korisnika
-     * @param accountNumber broj računa čije transakcije se preuzimaju
-     * @param page redni broj stranice
-     * @param size broj stavki po stranici
-     * @return paginirana lista transakcija
+     * @param jwt JWT token of the authenticated user
+     * @param accountNumber account number whose transactions are being retrieved
+     * @param page page number
+     * @param size number of items per page
+     * @return paginated list of transactions
      */
     Page<TransactionResponseDto> findAllTransactions(Jwt jwt, String accountNumber, int page, int size);
 
     /**
-     * Preuzima transakcije sa naprednom filtracijom po različitim kriterijumima.
+     * Retrieves transactions with advanced filtering by various criteria.
      *
-     * @param jwt JWT token autentifikovanog korisnika
-     * @param accountNumber broj računa (opciono)
-     * @param transactionStatus status transakcije (opciono)
-     * @param fromDate početna datuma (opciono)
-     * @param toDate krajnja datuma (opciono)
-     * @param initialAmountMin minimalni početni iznos (opciono)
-     * @param initialAmountMax maksimalni početni iznos (opciono)
-     * @param finalAmountMin minimalni finalni iznos (opciono)
-     * @param finalAmountMax maksimalni finalni iznos (opciono)
-     * @param page redni broj stranice
-     * @param size broj stavki po stranici
-     * @return filtrirana i paginirana lista transakcija
+     * @param jwt JWT token of the authenticated user
+     * @param accountNumber account number (optional)
+     * @param transactionStatus transaction status (optional)
+     * @param fromDate start date (optional)
+     * @param toDate end date (optional)
+     * @param initialAmountMin minimum initial amount (optional)
+     * @param initialAmountMax maximum initial amount (optional)
+     * @param finalAmountMin minimum final amount (optional)
+     * @param finalAmountMax maximum final amount (optional)
+     * @param page page number
+     * @param size number of items per page
+     * @return filtered and paginated list of transactions
      */
     Page<TransactionResponseDto> findPayments(Jwt jwt, String accountNumber, TransactionStatus transactionStatus, LocalDateTime fromDate, LocalDateTime toDate, BigDecimal initialAmountMin, BigDecimal initialAmountMax, BigDecimal finalAmountMin, BigDecimal finalAmountMax, int page, int size);
 
     /**
-     * Preuzima sve transakcije za specifičan račun (zaposlenski pristup - bez ograničenja vlasnika).
+     * Retrieves all transactions for a specific account (employee access - no owner restriction).
      *
-     * @param accountNumber broj računa čije transakcije se preuzimaju
-     * @param page redni broj stranice
-     * @param size broj stavki po stranici
-     * @return paginirana lista transakcija
+     * @param accountNumber account number whose transactions are being retrieved
+     * @param page page number
+     * @param size number of items per page
+     * @return paginated list of transactions
      */
     Page<TransactionResponseDto> findAllTransactionsForEmployee(String accountNumber, int page, int size);
 

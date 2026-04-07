@@ -12,8 +12,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * DTO za odgovor sa detaljnim informacijama o bankarskom računu.
- * Sadrži identifikacione podatke o vlasniku računa.
+ * DTO representing account details.
+ * Contains information about a specific account.
  */
 @Getter
 @Setter
@@ -21,7 +21,7 @@ import java.util.List;
 @NoArgsConstructor
 public class AccountDetailsResponseDto {
 
-    /** ID vlasnika računa (klijenta) */
+    /** Account number associated with the account. */
     @JsonProperty("ownerId")
     private Long vlasnik;
 }

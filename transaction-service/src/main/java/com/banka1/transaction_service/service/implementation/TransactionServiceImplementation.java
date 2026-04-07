@@ -41,10 +41,10 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 
 /**
- * Implementacija servisa za upravljanje transakcijama.
+ * Implementation of the service for managing transactions.
  * <p>
- * Ova klasa sadrži kompletnu poslovnu logiku za kreiranje, pretragu i filtriranje transakcija (plaćanja)
- * uključujući validacije, komunikaciju sa eksternim servisima i rad sa bazom podataka.
+ * This class contains the complete business logic for creating, searching, and filtering transactions (payments),
+ * including validations, communication with external services, and database operations.
  */
 @RequiredArgsConstructor
 @Getter
@@ -67,21 +67,21 @@ public class TransactionServiceImplementation implements TransactionService {
     private final PaymentRepository paymentRepository;
 
     /**
-     * Kreira novu transakciju (plaćanje) sa kompletan poslovnom logikom.
+     * Creates a new transaction (payment) with complete business logic.
      * <p>
-     * Proces:
+     * Process:
      * <ul>
-     *   <li>Provera verifikacije klijenta (ako je uključena)</li>
-     *   <li>Pronalaženje računa i validacija</li>
-     *   <li>Izračunavanje devizne konverzije</li>
-     *   <li>Kreiranje Payment entiteta u bazi</li>
-     *   <li>3 pokušaja izvršavanja transfera sa retry logikom</li>
-     *   <li>Ažuriranje statusa i slanje email notifikacije</li>
+     *   <li>Checks client verification (if enabled)</li>
+     *   <li>Finds accounts and validates them</li>
+     *   <li>Calculates currency conversion</li>
+     *   <li>Creates Payment entity in the database</li>
+     *   <li>Attempts to execute the transfer up to 3 times with retry logic</li>
+     *   <li>Updates status and sends email notification</li>
      * </ul>
      *
-     * @param jwt JWT token autentifikovanog korisnika
-     * @param newPaymentDto DTO sa detaljima novog plaćanja
-     * @return odgovor sa statusom plaćanja i porukom
+     * @param jwt JWT token of the authenticated user
+     * @param newPaymentDto DTO with new payment details
+     * @return response with payment status and message
      */
     @Override
     public NewPaymentResponseDto newPayment(Jwt jwt, NewPaymentDto newPaymentDto) {
@@ -131,11 +131,11 @@ public class TransactionServiceImplementation implements TransactionService {
     }
 
     /**
-     * Proverava da li je HTTP greška rezultat nepostojeceg računa.
-     * Koristi se za razlikovanje grešaka od Account servisa.
+     * Checks if the HTTP error is due to a non-existent account.
+     * Used to distinguish errors from the Account service.
      *
-     * @param ex HTTP greška iz Account servisa
-     * @return true ako je greška razlog "račun ne postoji", false inače
+     * @param ex HTTP error from the Account service
+     * @return true if the error is "account does not exist", false otherwise
      */
     private boolean isMissingAccountError(HttpClientErrorException ex) {
         if (HttpStatus.NOT_FOUND.equals(ex.getStatusCode())) {
@@ -156,15 +156,15 @@ public class TransactionServiceImplementation implements TransactionService {
     }
 
     /**
-     * Preuzima sve transakcije za određeni račun klijenta sa autentifikacijom.
+     * Retrieves all transactions for a specific client account with authentication.
      * <p>
-     * Samo vlasnik računa može pristupiti ovoj metodi.
+     * Only the account owner can access this method.
      *
-     * @param jwt JWT token autentifikovanog korisnika
-     * @param accountNumber broj računa
-     * @param page redni broj stranice
-     * @param size broj stavki po stranici
-     * @return paginirana lista transakcija za dati račun
+     * @param jwt JWT token of the authenticated user
+     * @param accountNumber account number
+     * @param page page number
+     * @param size number of items per page
+     * @return paginated list of transactions for the given account
      */
     @Transactional
     @Override
@@ -178,20 +178,20 @@ public class TransactionServiceImplementation implements TransactionService {
     }
 
     /**
-     * Preuzima transakcije sa naprednom filtracijom - dostupno samo zaposlenima i vlasnicima.
+     * Retrieves transactions with advanced filtering - available only to employees and owners.
      *
      * @param jwt JWT token
-     * @param accountNumber broj računa (opciono)
-     * @param transactionStatus status transakcije (opciono)
-     * @param fromDate početna datuma (opciono)
-     * @param toDate krajnja datuma (opciono)
-     * @param initialAmountMin minimalni početni iznos (opciono)
-     * @param initialAmountMax maksimalni početni iznos (opciono)
-     * @param finalAmountMin minimalni finalni iznos (opciono)
-     * @param finalAmountMax maksimalni finalni iznos (opciono)
-     * @param page redni broj stranice
-     * @param size broj stavki po stranici
-     * @return filtrirana i paginirana lista transakcija
+     * @param accountNumber account number (optional)
+     * @param transactionStatus transaction status (optional)
+     * @param fromDate start date (optional)
+     * @param toDate end date (optional)
+     * @param initialAmountMin minimum initial amount (optional)
+     * @param initialAmountMax maximum initial amount (optional)
+     * @param finalAmountMin minimum final amount (optional)
+     * @param finalAmountMax maximum final amount (optional)
+     * @param page page number
+     * @param size number of items per page
+     * @return filtered and paginated list of transactions
      */
     @Override
     public Page<TransactionResponseDto> findPayments(Jwt jwt, String accountNumber, TransactionStatus transactionStatus, LocalDateTime fromDate, LocalDateTime toDate, BigDecimal initialAmountMin, BigDecimal initialAmountMax, BigDecimal finalAmountMin, BigDecimal finalAmountMax, int page, int size) {
@@ -248,12 +248,12 @@ public class TransactionServiceImplementation implements TransactionService {
     }
 
     /**
-     * Preuzima sve transakcije za određeni račun - zaposlenski pristup bez ograničenja vlasnika.
+     * Retrieves all transactions for a specific account - employee access without owner restrictions.
      *
-     * @param accountNumber broj računa
-     * @param page redni broj stranice
-     * @param size broj stavki po stranici
-     * @return paginirana lista transakcija
+     * @param accountNumber account number
+     * @param page page number
+     * @param size number of items per page
+     * @return paginated list of transactions
      */
     @Transactional
     @Override
@@ -262,8 +262,8 @@ public class TransactionServiceImplementation implements TransactionService {
                 .map(TransactionResponseDto::new);
     }
 
-    //todo za sad ovo ostavljam ovde, validacije bi trebalo da budu zaseban servis, if-ove sam ostavio just in case
-    //TODO menjati exceptione
+    //todo for now leaving this here, validations should be a separate service, left ifs just in case
+    //TODO change exceptions
 
 //    private void  validation(AccountDto account,Jwt jwt)
 //    {

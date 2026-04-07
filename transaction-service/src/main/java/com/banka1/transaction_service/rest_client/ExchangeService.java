@@ -1,7 +1,5 @@
 package com.banka1.transaction_service.rest_client;
 
-
-
 import com.banka1.transaction_service.domain.enums.CurrencyCode;
 import com.banka1.transaction_service.dto.response.ConversionResponseDto;
 import lombok.RequiredArgsConstructor;
@@ -14,8 +12,8 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 /**
- * REST klijent za komunikaciju sa Exchange Service-om.
- * Obezbeđuje operacije za izračunavanje deviznih konverzija između valuta.
+ * REST client for interacting with the Exchange Service.
+ * Provides methods for retrieving exchange rates.
  */
 @Service
 public class ExchangeService {
@@ -23,23 +21,23 @@ public class ExchangeService {
     private final RestClient restClient;
 
     /**
-     * Konstruktor koji injektuje REST klijenta za Exchange Service.
+     * Constructor that injects the REST client for the Exchange Service.
      *
-     * @param restClient konfigurisan REST klijent sa JWT autentifikacijom
+     * @param restClient configured REST client with JWT authentication
      */
     public ExchangeService(@Qualifier("exchangeClient") RestClient restClient) {
         this.restClient = restClient;
     }
 
     /**
-     * Izračunava ekvivalentni iznos pri konverziji između dve valute.
+     * Calculates the equivalent amount when converting between two currencies.
      * <p>
-     * Kalkulator koristi trenutne devizne kurseve i primenjuje komisiju.
+     * The calculator uses current exchange rates and applies a commission.
      *
-     * @param fromCurrency izvorna valuta
-     * @param toCurrency ciljna valuta
-     * @param amount iznos za konverziju u izvorenoj valuti
-     * @return rezultat konverzije sa svim detaljima (konvertovani iznos, kurs, komisija)
+     * @param fromCurrency the source currency
+     * @param toCurrency the target currency
+     * @param amount the amount to convert in the source currency
+     * @return the conversion result with all details (converted amount, rate, commission)
      */
     public ConversionResponseDto calculate(CurrencyCode fromCurrency,
                                            CurrencyCode toCurrency,
@@ -54,6 +52,5 @@ public class ExchangeService {
                 .retrieve()
                 .body(ConversionResponseDto.class);
     }
-
 
 }

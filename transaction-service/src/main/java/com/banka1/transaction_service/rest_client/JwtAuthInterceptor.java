@@ -12,25 +12,24 @@ import java.io.IOException;
 
 
 /**
- * HTTP interceptor koji automatski dodaje JWT token u Authorization header-e.
- * Koristi se za autentifikaciju pri pozivu drugih REST servisa.
+ * Interceptor for adding JWT authentication headers to outgoing requests.
+ * Ensures that requests to external services include the necessary JWT token.
  */
 @Configuration
 @RequiredArgsConstructor
 public class JwtAuthInterceptor implements ClientHttpRequestInterceptor {
 
-    /** Servis za generisanje JWT tokena */
+    /** Service for generating JWT tokens */
     private final JWTService jwtProvider;
 
     /**
-     * Intercept metoda koja se poziva za svaki HTTP zahtev.
-     * Generiše novi JWT token i dodaje ga u Authorization header.
+     * Intercepts the outgoing HTTP request and adds the Authorization header.
      *
-     * @param request HTTP zahtev koji se šalje
-     * @param body telo zahteva
-     * @param execution executor koji nastavlja sa slanjem zahteva
-     * @return HTTP odgovor sa autorima
-     * @throws IOException ako dodje do greške pri komunikaciji
+     * @param request the HTTP request
+     * @param body the request body
+     * @param execution the request execution
+     * @return the response from the executed request
+     * @throws IOException if an I/O error occurs
      */
     @Override
     public ClientHttpResponse intercept(HttpRequest request, byte[] body,

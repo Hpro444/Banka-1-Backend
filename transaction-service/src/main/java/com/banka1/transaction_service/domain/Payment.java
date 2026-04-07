@@ -15,98 +15,96 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 
-
-//Ideja sa BaseEntityWithoutDelete je da se ohrabri dobar dizajn pattern,
-  //ukoliko ispadne da je Payment jedini sa ovim, obrisacu ga
+// The idea with BaseEntityWithoutDelete is to encourage a good design pattern.
+// If it turns out that Payment is the only one with this, I will remove it.
 
 /**
- * JPA entitet koji predstavlja finansijsku transakciju (plaćanje) između dva računa.
- * Sadrži sve relevantne podatke o transakciji uključujući identifikacione podatke,
- * finansijske podatke, podatke o valutama i status transakcije.
- * Nasledjuje BaseEntityWithoutDelete što znači da nema soft delete zastavice.
+ * JPA entity representing a financial transaction (payment) between two accounts.
+ * Contains all relevant transaction data including identification details,
+ * financial details, currency details, and transaction status.
+ * Inherits from BaseEntityWithoutDelete, meaning it does not have a soft delete flag.
  */
 @Entity
 @Table(
         name = "payment_table"
 )
-
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 @Setter
 public class Payment extends BaseEntityWithoutDelete {
 
-    /** Jedinstveni redni broj plaćanja - automatski generiše se kao "BANKA1-{id}" */
+    /** Unique payment order number - automatically generated as "BANKA1-{id}" */
     @Column(unique = true)
     private String orderNumber;
 
-    /** Broj računa sa kojeg se novac prenosi (19 cifara) */
+    /** Account number from which the money is transferred (19 digits) */
     @NotBlank
     @Column(nullable = false)
     private String fromAccountNumber;
 
-    /** Broj računa na koji se novac prenosi (19 cifara) */
+    /** Account number to which the money is transferred (19 digits) */
     @NotBlank
     @Column(nullable = false)
     private String toAccountNumber;
 
-    /** Iznos u izvorenoj valuti */
+    /** Amount in the source currency */
     @Column(nullable = false)
     @DecimalMin(value = "0.00", inclusive = true)
     private BigDecimal initialAmount;
 
-    /** Iznos u ciljnoj valuti nakon konverzije */
+    /** Amount in the target currency after conversion */
     @Column(nullable = false)
     @DecimalMin(value = "0.00", inclusive = true)
     private BigDecimal finalAmount;
 
-    /** Komisija naplaćena za transakciju */
+    /** Commission charged for the transaction */
     @Column(nullable = false)
     @DecimalMin(value = "0.00", inclusive = true)
     private BigDecimal commission;
 
-    /** ID klijenta koji je primalac novca */
+    /** ID of the client who is the recipient of the money */
     @Column(nullable = false)
     private Long recipientClientId;
 
-    /** Ime primaoca novca */
+    /** Name of the recipient of the money */
     @NotBlank
     @Column(nullable = false)
     private String recipientName;
 
-    /** Šifra plaćanja - mora počinjati sa 2 i imati tačno 3 cifre */
+    /** Payment code - must start with 2 and have exactly 3 digits */
     @NotBlank
     @Pattern(regexp = "^2.*", message = "Sifra mora poceti sa 2")
     @Pattern(regexp = "^\\d{3}$", message = "Sifra mora imati tacno 3 cifre")
     @Column(nullable = false)
     private String paymentCode;
 
-    /** Referentni broj plaćanja (opciono) */
+    /** Reference number for the payment (optional) */
     private String referenceNumber;
 
-    /** Svrha/opis plaćanja */
+    /** Purpose/description of the payment */
     @NotBlank
     @Column(nullable = false)
     private String paymentPurpose;
 
-    /** Trenutni status transakcije */
+    /** Current status of the transaction */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TransactionStatus status=TransactionStatus.IN_PROGRESS;
 
-    /** Valuta izvorne transakcije */
+    /** Currency of the source transaction */
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private CurrencyCode fromCurrency;
 
-    /** Valuta odredišne transakcije */
+    /** Currency of the target transaction */
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private CurrencyCode toCurrency;
 
-    /** Kurs konverzije između valuta (toAmount / fromAmount) */
+    /** Conversion rate between currencies (toAmount / fromAmount) */
     @DecimalMin(value = "0.00", inclusive = false)
     private BigDecimal exchangeRate;
 

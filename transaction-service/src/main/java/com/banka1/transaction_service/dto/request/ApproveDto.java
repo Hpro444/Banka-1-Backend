@@ -7,7 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * DTO za zahtev odobrenja/verifikacije sa sigurnosnim ključem.
+ * DTO for approving a transaction.
+ * Contains the necessary information to approve a specific transaction.
  */
 @NoArgsConstructor
 @AllArgsConstructor
@@ -15,7 +16,7 @@ import lombok.Setter;
 @Setter
 public class ApproveDto {
 
-    /** Sigurnosni ključ ili verifikacijski kod */
+    /** Unique identifier of the transaction to be approved. */
     @NotBlank(message = "Unesi key")
     private String key;
 }

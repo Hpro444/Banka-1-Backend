@@ -17,60 +17,72 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * Implementacija JWT servisa za generisanje i potpisivanje JWT tokena.
- * Koristi HMAC-SHA256 algoritam za potpisivanje tokena.
+ * Implementation of the JWT service for generating and signing JWT tokens.
+ * Uses the HMAC-SHA256 algorithm for token signing.
  */
 @Service
 @Getter
 public class JWTServiceImplementation implements JWTService {
 
-    /** Signer koji potpisuje JWT tokene HMAC-SHA256 algoritmom */
+    /**
+     * Signer that signs JWT tokens using the HMAC-SHA256 algorithm.
+     */
     private final JWSSigner signer;
 
-    /** Naziv claim-a u JWT-u koji nosi ime uloge korisnika */
+    /**
+     * Name of the claim in the JWT that carries the user's role.
+     */
     @Value("${banka.security.roles-claim}")
     private String role;
 
-    /** Naziv claim-a u JWT-u koji nosi listu permisija korisnika */
+    /**
+     * Name of the claim in the JWT that carries the user's permissions.
+     */
     @Value("${banka.security.permissions-claim}")
     private String permission;
 
-    /** Naziv claim-a u JWT-u koji nosi identifikator korisnika/servisa */
+    /**
+     * Name of the claim in the JWT that carries the identifier of the user/service.
+     */
     @Value("${banka.security.id}")
     private String id;
 
-    /** Issuer vrednost koja se upisuje u JWT token */
+    /**
+     * Issuer value written into the JWT token.
+     */
     @Value("${banka.security.issuer}")
     private String issuer;
 
-    /** Vreme trajanja JWT tokena u milisekundama */
+    /**
+     * Duration of the JWT token in milliseconds.
+     */
     @Value("${banka.security.expiration-time}")
     private Long expirationTime;
 
     /**
-     * Inicijalizuje servis za potpisivanje JWT tokena učitavanjem HMAC tajne.
+     * Initializes the service for signing JWT tokens by loading the HMAC secret.
      *
-     * @param secret HMAC tajna za potpisivanje tokena (minimalno 32 karaktera za HS256)
-     * @throws KeyLengthException ako je tajna neodgovarajuće dužine za HS256
+     * @param secret HMAC secret for signing tokens (minimum 32 characters for HS256)
+     * @throws KeyLengthException if the secret length is insufficient for HS256
      */
     public JWTServiceImplementation(@Value("${jwt.secret}") String secret) throws KeyLengthException {
         this.signer = new MACSigner(secret);
     }
 
     /**
-     * Generiše JWT pristupni token sa standardnim claim-ima za servis.
+     * Generates a JWT access token with standard claims for the service.
      * <p>
-     * Token sadrži:
+     * The token contains:
      * <ul>
      *   <li>Subject: "account-service"</li>
-     *   <li>Issuer: konfigurisan u svojstvima</li>
+     *   <li>Issuer: configured in properties</li>
      *   <li>Role: "SERVICE"</li>
-     *   <li>Permissions: prazna lista</li>
-     *   <li>Expiration: trenutna vremenska oznaka + konfigurisano vreme trajanja</li>
+     *   <li>Permissions: empty list</li>
+     *   <li>Expiration: current timestamp + configured duration</li>
      * </ul>
      *
-     * @return serijalizovan potpisani JWT token
-     * @throws IllegalStateException ako dodje do greške pri potpisivanju
+     * @return serialized signed JWT token
+     * @throws IllegalStateException if an error occurs during signing
      */
     @Override
     public String generateJwtToken() {

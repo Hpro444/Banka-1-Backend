@@ -1,35 +1,25 @@
 package com.banka1.transaction_service.domain.enums;
 
 /**
- * Enum koji definiše sve podržane valute u sistemu.
+ * Enum representing supported currency codes.
  * <p>
- * Podržane valute:
- * <ul>
- *   <li>RSD - Srpski dinar</li>
- *   <li>EUR - Evro</li>
- *   <li>CHF - Švajcarski franak</li>
- *   <li>USD - Američki dolar</li>
- *   <li>GBP - Britanska funta</li>
- *   <li>JPY - Japanski jen</li>
- *   <li>CAD - Kanadski dolar</li>
- *   <li>AUD - Australijski dolar</li>
- * </ul>
+ * Includes major world currencies such as USD, EUR, and others.
  */
 public enum CurrencyCode {
-    /** Srpski dinar */
+    /** Serbian dinar */
     RSD,
-    /** Evro */
+    /** Euro */
     EUR,
-    /** Švajcarski franak */
+    /** Swiss franc */
     CHF,
-    /** Američki dolar */
+    /** US dollar */
     USD,
-    /** Britanska funta */
+    /** British pound */
     GBP,
-    /** Japanski jen */
+    /** Japanese yen */
     JPY,
-    /** Kanadski dolar */
+    /** Canadian dollar */
     CAD,
-    /** Australijski dolar */
+    /** Australian dollar */
     AUD
 }
