@@ -29,12 +29,34 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 
+/**
+ * REST kontroler za upravljanje transakcijama i transferima novca.
+ * Obezbeđuje endpoint-e za klijente da kreiraju nove plaćanja i pregledavaju
+ * istoriju svojih transakcija.
+ * <p>
+ * Zahteva autentifikaciju preko JWT tokena sa odgovarajućim ulogama.
+ */
 @RestController
 @AllArgsConstructor
 //@PreAuthorize("hasRole('CLIENT_BASIC')")
-
 public class TransactionController {
     private TransactionService transactionService;
+
+    /**
+     * Kreira novu transakciju (plaćanje) između dva računa.
+     * <p>
+     * Provera uključuje:
+     * <ul>
+     *   <li>Verifikaciju klijenta preko koda (ako je uključena)</li>
+     *   <li>Proveravanje postojanja računa</li>
+     *   <li>Izračunavanje deviznog kursa i komisije</li>
+     *   <li>Pokušaj izvršavanja transfera sa 3 pokušaja</li>
+     * </ul>
+     *
+     * @param jwt JWT token autentifikovanog korisnika
+     * @param newPaymentDto DTO sa detaljima plaćanja
+     * @return odgovor sa statusom plaćanja i porukom
+     */
     @Operation(summary = "Create a new payment")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Payment created",
@@ -57,7 +79,18 @@ public class TransactionController {
 
 
 
-
+    /**
+     * Preuzima sve transakcije za određeni korisnički račun.
+     * <p>
+     * Samo vlasnik računa ili zaposleni sa odgovarajućom ulogom mogu pristupiti ovom endpoint-u.
+     * Rezultati su paginisani i sortiran po datumu kreiranja (najnovije prvo).
+     *
+     * @param jwt JWT token autentifikovanog korisnika
+     * @param accountNumber broj računa čije transakcije treba preuzeti
+     * @param page redni broj stranice (počinje od 0)
+     * @param size broj stavki po stranici
+     * @return paginirana lista transakcija za dati račun
+     */
     @Operation(summary = "Get account transactions")
     @ApiResponses({
             @ApiResponse(responseCode = "401", description = "Unauthorized",
@@ -78,6 +111,34 @@ public class TransactionController {
         return new ResponseEntity<>(transactionService.findAllTransactions(jwt,accountNumber,page,size), HttpStatus.OK);
     }
 
+
+    /**
+     * Preuzima transakcije sa naprednom filtracijom i pretraživanjem.
+     * <p>
+     * Omogućava filtiranje po:
+     * <ul>
+     *   <li>Broju računa (polaznog ili odredišnog)</li>
+     *   <li>Statusu transakcije</li>
+     *   <li>Vremenskom periodu</li>
+     *   <li>Rasponu iznosa</li>
+     * </ul>
+     * <p>
+     * Samo ADMIN korisnici mogu videti sve transakcije. Ostali korisnici
+     * mogu videti samo transakcije gde su vlasnici računa.
+     *
+     * @param jwt JWT token autentifikovanog korisnika
+     * @param accountNumber broj računa za filtriranje (opciono)
+     * @param status status transakcije kao string (opciono, konvertuje se u enum)
+     * @param fromDate početna datuma za period (opciono)
+     * @param toDate krajnja datuma za period (opciono)
+     * @param initialAmountMin minimalni početni iznos (opciono)
+     * @param initialAmountMax maksimalni početni iznos (opciono)
+     * @param finalAmountMin minimalni finalni iznos (opciono)
+     * @param finalAmountMax maksimalni finalni iznos (opciono)
+     * @param page redni broj stranice
+     * @param size broj stavki po stranici
+     * @return filtrirana i paginirana lista transakcija
+     */
     @GetMapping("/api/payments")
     //todo proveriti da li uospte treba za BASIC(EMPLOYEE_BASIC)
     @PreAuthorize("hasAnyRole('CLIENT_BASIC','BASIC')")

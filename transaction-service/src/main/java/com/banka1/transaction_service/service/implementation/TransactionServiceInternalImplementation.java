@@ -25,6 +25,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDateTime;
 
+/**
+ * Interni servis koji upravljanja životnim ciklom transakcije - kreiranjem, završetkom i notifikacijama.
+ * Koristi se interno od TransactionServiceImplementation-a.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -35,6 +39,24 @@ public class TransactionServiceInternalImplementation implements TransactionServ
     private final PaymentRepository paymentRepository;
     private final RabbitClient rabbitClient;
 
+    /**
+     * Kreira novu Payment transakciju u bazi podataka sa svim relevantnim detaljima.
+     * <p>
+     * Ova metoda:
+     * <ul>
+     *   <li>Kreira novi Payment entitet sa svim podatacima</li>
+     *   <li>Postavlja status na IN_PROGRESS</li>
+     *   <li>Čuva u bazi</li>
+     *   <li>Generiše jedinstveni redni broj kao "BANKA1-{id}"</li>
+     *   <li>Vraća ID novo kreirane transakcije</li>
+     * </ul>
+     *
+     * @param jwt JWT token korisnika
+     * @param newPaymentDto DTO sa detaljima plaćanja
+     * @param infoResponseDto informacije o računima
+     * @param conversionResponseDto rezultat devizne konverzije
+     * @return ID novo kreirane Payment transakcije
+     */
     @Override
     public Long create(Jwt jwt, NewPaymentDto newPaymentDto, InfoResponseDto infoResponseDto, ConversionResponseDto conversionResponseDto) {
         Payment payment=new Payment();
@@ -57,6 +79,22 @@ public class TransactionServiceInternalImplementation implements TransactionServ
         return payment.getId();
     }
 
+    /**
+     * Završava transakciju sa finalnim statusom i šalje email notifikaciju.
+     * <p>
+     * Procesa:
+     * <ul>
+     *   <li>Pronalazi Payment entitet po ID-u</li>
+     *   <li>Ažurira status na COMPLETED ili DENIED</li>
+     *   <li>Registruje TransactionSynchronization callback</li>
+     *   <li>Nakon SQL commit-a, šalje RabbitMQ poruku za email notifikaciju</li>
+     * </ul>
+     *
+     * @param jwt JWT token korisnika
+     * @param infoResponseDto informacije o pošiljaocu (email, username)
+     * @param id ID Payment entiteta koji se završava
+     * @param transactionStatus finalni status transakcije
+     */
     @Override
     public void finish(Jwt jwt, InfoResponseDto infoResponseDto, Long id, TransactionStatus transactionStatus) {
         Payment payment=paymentRepository.findById(id).orElseThrow(()->new IllegalStateException("Greska u sistemu, nije sacuvao entitet"));
@@ -71,7 +109,12 @@ public class TransactionServiceInternalImplementation implements TransactionServ
 
     }
 
-
+    /**
+     * Periodički cleanup task koji detektuje i obeležava "zaglavljene" transakcije kao DENIED.
+     * <p>
+     * Izvršava se svakih 100 sekundi i pronalazi transakcije koje su ostale
+     * u IN_PROGRESS statusu duže od 5 minuta.
+     */
     @Scheduled(fixedRate = 100000)
     public void cleanup() {
         int updated = paymentRepository.markStuckPayments(

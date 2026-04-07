@@ -11,11 +11,27 @@ import org.springframework.http.client.ClientHttpResponse;
 import java.io.IOException;
 
 
+/**
+ * HTTP interceptor koji automatski dodaje JWT token u Authorization header-e.
+ * Koristi se za autentifikaciju pri pozivu drugih REST servisa.
+ */
 @Configuration
 @RequiredArgsConstructor
 public class JwtAuthInterceptor implements ClientHttpRequestInterceptor {
 
+    /** Servis za generisanje JWT tokena */
     private final JWTService jwtProvider;
+
+    /**
+     * Intercept metoda koja se poziva za svaki HTTP zahtev.
+     * Generiše novi JWT token i dodaje ga u Authorization header.
+     *
+     * @param request HTTP zahtev koji se šalje
+     * @param body telo zahteva
+     * @param execution executor koji nastavlja sa slanjem zahteva
+     * @return HTTP odgovor sa autorima
+     * @throws IOException ako dodje do greške pri komunikaciji
+     */
     @Override
     public ClientHttpResponse intercept(HttpRequest request, byte[] body,
                                         ClientHttpRequestExecution execution) throws IOException {

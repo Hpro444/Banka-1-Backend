@@ -40,6 +40,12 @@ import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.NoSuchElementException;
 
+/**
+ * Implementacija servisa za upravljanje transakcijama.
+ * <p>
+ * Ova klasa sadrži kompletnu poslovnu logiku za kreiranje, pretragu i filtriranje transakcija (plaćanja)
+ * uključujući validacije, komunikaciju sa eksternim servisima i rad sa bazom podataka.
+ */
 @RequiredArgsConstructor
 @Getter
 @Setter
@@ -60,9 +66,23 @@ public class TransactionServiceImplementation implements TransactionService {
     private final TransactionServiceInternal transactionServiceInternal;
     private final PaymentRepository paymentRepository;
 
-
-
-//    @Transactional
+    /**
+     * Kreira novu transakciju (plaćanje) sa kompletan poslovnom logikom.
+     * <p>
+     * Proces:
+     * <ul>
+     *   <li>Provera verifikacije klijenta (ako je uključena)</li>
+     *   <li>Pronalaženje računa i validacija</li>
+     *   <li>Izračunavanje devizne konverzije</li>
+     *   <li>Kreiranje Payment entiteta u bazi</li>
+     *   <li>3 pokušaja izvršavanja transfera sa retry logikom</li>
+     *   <li>Ažuriranje statusa i slanje email notifikacije</li>
+     * </ul>
+     *
+     * @param jwt JWT token autentifikovanog korisnika
+     * @param newPaymentDto DTO sa detaljima novog plaćanja
+     * @return odgovor sa statusom plaćanja i porukom
+     */
     @Override
     public NewPaymentResponseDto newPayment(Jwt jwt, NewPaymentDto newPaymentDto) {
         if (!skipVerification) {
@@ -110,6 +130,13 @@ public class TransactionServiceImplementation implements TransactionService {
         return new NewPaymentResponseDto("Payment nije bio uspesan", transactionStatus.name());
     }
 
+    /**
+     * Proverava da li je HTTP greška rezultat nepostojeceg računa.
+     * Koristi se za razlikovanje grešaka od Account servisa.
+     *
+     * @param ex HTTP greška iz Account servisa
+     * @return true ako je greška razlog "račun ne postoji", false inače
+     */
     private boolean isMissingAccountError(HttpClientErrorException ex) {
         if (HttpStatus.NOT_FOUND.equals(ex.getStatusCode())) {
             return true;
@@ -128,6 +155,17 @@ public class TransactionServiceImplementation implements TransactionService {
         return normalized.contains("ne postoji") && normalized.contains("racun");
     }
 
+    /**
+     * Preuzima sve transakcije za određeni račun klijenta sa autentifikacijom.
+     * <p>
+     * Samo vlasnik računa može pristupiti ovoj metodi.
+     *
+     * @param jwt JWT token autentifikovanog korisnika
+     * @param accountNumber broj računa
+     * @param page redni broj stranice
+     * @param size broj stavki po stranici
+     * @return paginirana lista transakcija za dati račun
+     */
     @Transactional
     @Override
     public Page<TransactionResponseDto> findAllTransactions(Jwt jwt, String accountNumber, int page, int size) {
@@ -139,6 +177,22 @@ public class TransactionServiceImplementation implements TransactionService {
         return paymentRepository.findByAccountNumber(accountNumber, PageRequest.of(page,size)).map(TransactionResponseDto::new);
     }
 
+    /**
+     * Preuzima transakcije sa naprednom filtracijom - dostupno samo zaposlenima i vlasnicima.
+     *
+     * @param jwt JWT token
+     * @param accountNumber broj računa (opciono)
+     * @param transactionStatus status transakcije (opciono)
+     * @param fromDate početna datuma (opciono)
+     * @param toDate krajnja datuma (opciono)
+     * @param initialAmountMin minimalni početni iznos (opciono)
+     * @param initialAmountMax maksimalni početni iznos (opciono)
+     * @param finalAmountMin minimalni finalni iznos (opciono)
+     * @param finalAmountMax maksimalni finalni iznos (opciono)
+     * @param page redni broj stranice
+     * @param size broj stavki po stranici
+     * @return filtrirana i paginirana lista transakcija
+     */
     @Override
     public Page<TransactionResponseDto> findPayments(Jwt jwt, String accountNumber, TransactionStatus transactionStatus, LocalDateTime fromDate, LocalDateTime toDate, BigDecimal initialAmountMin, BigDecimal initialAmountMax, BigDecimal finalAmountMin, BigDecimal finalAmountMax, int page, int size) {
         if(!jwt.getClaimAsString(roles).equalsIgnoreCase("ADMIN"))
@@ -193,7 +247,14 @@ public class TransactionServiceImplementation implements TransactionService {
                 .map(TransactionResponseDto::new);
     }
 
-
+    /**
+     * Preuzima sve transakcije za određeni račun - zaposlenski pristup bez ograničenja vlasnika.
+     *
+     * @param accountNumber broj računa
+     * @param page redni broj stranice
+     * @param size broj stavki po stranici
+     * @return paginirana lista transakcija
+     */
     @Transactional
     @Override
     public Page<TransactionResponseDto> findAllTransactionsForEmployee(String accountNumber, int page, int size) {
@@ -211,9 +272,5 @@ public class TransactionServiceImplementation implements TransactionService {
 //        if(!account.getVlasnik().equals(((Number) jwt.getClaim(appPropertiesId)).longValue()))
 //            throw new IllegalArgumentException("Nisi vlasnik racuna");
 //    }
-
-
-
-
 
 }

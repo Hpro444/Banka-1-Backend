@@ -11,26 +11,63 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * DTO odgovora za transakciju - vraća se klijentu kod pregleda istorije transakcija.
+ * Sadrži sve relevantne informacije o izvršenoj ili izvršavajućoj transakciji.
+ */
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 @Setter
 public class TransactionResponseDto {
+
+    /** Jedinstveni redni broj plaćanja u sistemu */
     private String orderNumber;
+
+    /** Broj računa sa kojeg je novac prenet */
     private String fromAccountNumber;
+
+    /** Broj računa na koji je novac prenet */
     private String toAccountNumber;
+
+    /** Početni iznos u izvorenoj valuti */
     private BigDecimal initialAmount;
+
+    /** Finalni iznos u ciljnoj valuti */
     private BigDecimal finalAmount;
+
+    /** Ime primaoca novca */
     private String recipientName;
+
+    /** Šifra plaćanja */
     private String paymentCode;
+
+    /** Referentni broj plaćanja */
     private String referenceNumber;
+
+    /** Svrha/opis plaćanja */
     private String paymentPurpose;
+
+    /** Trenutni status transakcije */
     private TransactionStatus status;
+
+    /** Valuta izvorne transakcije */
     private CurrencyCode fromCurrency;
-    private  CurrencyCode toCurrency;
+
+    /** Valuta odredišne transakcije */
+    private CurrencyCode toCurrency;
+
+    /** Kurs konverzije između valuta */
     private BigDecimal exchangeRate;
+
+    /** Vreme kreiranja transakcije */
     private LocalDateTime createdAt;
 
+    /**
+     * Konstruktor za konverziju Payment entiteta u DTO.
+     *
+     * @param payment Payment entitet iz baze podataka
+     */
     public TransactionResponseDto(Payment payment) {
         this.orderNumber = payment.getOrderNumber();
         this.fromAccountNumber = payment.getFromAccountNumber();

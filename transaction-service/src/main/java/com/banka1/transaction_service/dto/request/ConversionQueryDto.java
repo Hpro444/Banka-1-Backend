@@ -26,28 +26,15 @@ public class ConversionQueryDto {
     private static final String SUPPORTED_CURRENCY_MESSAGE =
             "Supported currencies are RSD, EUR, CHF, USD, GBP, JPY, CAD and AUD.";
 
-    /**
-     * Izvorna valuta iz koje korisnik konvertuje iznos.
-     */
-
+    /** Izvorna valuta iz koje korisnik konvertuje iznos */
     private String fromCurrency;
 
-    /**
-     * Ciljna valuta u koju se obracunava ekvivalent.
-     */
-
+    /** Ciljna valuta u koju se obracunava ekvivalent */
     private String toCurrency;
 
-    /**
-     * Iznos koji treba preracunati.
-     */
-
+    /** Iznos koji treba preracunati */
     private BigDecimal amount;
 
-    /**
-     * Opcioni datum kursne liste.
-     * Ako nije zadat, koristi se poslednji raspolozivi lokalni snapshot.
-     */
-
+    /** Opcioni datum kursne liste (ako nije zadat, koristi se poslednji dostupni) */
     private LocalDate date;
 }

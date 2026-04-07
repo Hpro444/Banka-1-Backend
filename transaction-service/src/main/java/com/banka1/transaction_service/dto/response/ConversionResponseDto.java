@@ -4,17 +4,16 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * DTO odgovora za endpoint kalkulacije ekvivalencije.
- * Struktura je prilagodjena specifikaciji zadatka i predstavlja javni API
- * kontrakt koji klijent dobija kao JSON odgovor.
+ * DTO odgovora za endpoint kalkulacije ekvivalencije valuta.
+ * Vraća detaljne rezultate konverzije uključujući konvertovani iznos, kurs i komisiju.
  *
- * @param fromCurrency izvorna valuta
- * @param toCurrency ciljna valuta
+ * @param fromCurrency izvorna valuta (npr. "RSD")
+ * @param toCurrency ciljna valuta (npr. "EUR")
  * @param fromAmount originalni iznos iz zahteva
- * @param toAmount preracunati iznos u ciljnoj valuti
- * @param rate efektivni kurs konverzije, tj. odnos {@code toAmount/fromAmount}
- * @param commission obracunata provizija u izvornoj valuti
- * @param date datum kursne liste koji je koriscen u obracunu
+ * @param toAmount preračunati iznos u ciljnoj valuti
+ * @param rate efektivni kurs konverzije (toAmount / fromAmount)
+ * @param commission obračunata provizija u izvornoj valuti
+ * @param date datum kursne liste koji je korišćen u obračunu
  */
 
 public record ConversionResponseDto(

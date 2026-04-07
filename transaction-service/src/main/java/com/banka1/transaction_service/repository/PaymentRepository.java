@@ -13,9 +13,25 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 
+/**
+ * Spring Data JPA repository za Payment entitet.
+ * Obezbeđuje CRUD operacije i custom query metode za upravljanje transakcijama.
+ */
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment,Long>, JpaSpecificationExecutor<Payment> {
 
+    /**
+     * Ažurira status "zaglavl enih" transakcija koje su ostale u IN_PROGRESS statusu
+     * duže od specificiranog vremenskog praga.
+     * <p>
+     * Ova metoda se koristi u cleanup taskovima koji detektuju i rešavaju
+     * neuspešno završene transakcije.
+     *
+     * @param oldStatus stari status koji se menja (obično IN_PROGRESS)
+     * @param newStatus novi status u koji se prevodimo (obično DENIED)
+     * @param threshold vremenski prag - transakcije kreiran pre ovog vremena
+     * @return broj ažuriranih redova
+     */
     @Modifying
     @Query("""
     UPDATE Payment p
@@ -29,7 +45,16 @@ public interface PaymentRepository extends JpaRepository<Payment,Long>, JpaSpeci
             LocalDateTime threshold
     );
 
-
+    /**
+     * Preuzima sve transakcije povezane sa određenim brojem računa.
+     * <p>
+     * Pronalazi sve transakcije gde je dati račun ili pošiljaoc ili primalac,
+     * sortiran po vremenu kreiranja (najnovije prvo).
+     *
+     * @param accountNumber broj računa
+     * @param pageable parametri paginacije
+     * @return paginirana lista transakcija za dati račun
+     */
     @Query("""
     SELECT p
     FROM Payment p

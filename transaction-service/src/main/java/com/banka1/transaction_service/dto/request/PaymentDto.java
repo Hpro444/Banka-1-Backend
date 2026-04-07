@@ -14,8 +14,8 @@ import java.math.BigDecimal;
 /**
  * DTO za zahtev izvršavanja finansijske transakcije ili transfera.
  * <p>
- * Koristi se za intra-bank transfere novca između računa, sa
- * mogućnošću konverzije između različitih valuta i nabijanjem komisije.
+ * Koristi se za intra-bank transfere novca između računa, sa mogućnošću konverzije
+ * između različitih valuta i nabijanjem komisije.
  * <p>
  * Validacija:
  * <ul>
@@ -29,50 +29,30 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 public class PaymentDto {
-    /**
-     * Broj računa sa kojeg se novac prenosi (19 cifara).
-     */
 
+    /** Broj računa sa kojeg se novac prenosi (19 cifara) */
     private String fromAccountNumber;
 
-    /**
-     * Broj računa na koji se novac prenosi (19 cifara).
-     */
-
+    /** Broj računa na koji se novac prenosi (19 cifara) */
     private String toAccountNumber;
 
     /**
      * Iznos koji se prenosi iz izvornog računa u njegovoj valuti.
-     * <p>
-     * Ako su računi u različitim valutama, ovaj iznos se konvertuje
-     * prema toAmount.
+     * Ako su računi u različitim valutama, ovaj iznos se konvertuje prema toAmount.
      */
-
     private BigDecimal fromAmount;
 
     /**
      * Iznos koji se prima na odredišnom računu nakon konverzije (ako je primenjena).
-     * <p>
      * Ako su računi u istoj valuti, ova vrednost je jednaka fromAmount.
-     * Ako su u različitim valutama, ova vrednost je konvertovana prema
-     * kursnim paritetu.
+     * Ako su u različitim valutama, ova vrednost je konvertovana prema kursnom paritetu.
      */
-
     private BigDecimal toAmount;
 
-    /**
-     * Komisija za transakciju. Obično se oduzima od izvornog računa.
-     */
-
+    /** Komisija za transakciju. Obično se oduzima od izvornog računa */
     private BigDecimal commission;
 
-    /**
-     * ID klijenta koji inicira transfer (opciono, za audit log).
-     */
-
-
-
+    /** ID klijenta koji inicira transfer (opciono, za audit log) */
     private Long clientId;
-
 
 }
