@@ -7,5 +7,6 @@
 
     <include file="db/changelog/001-baseline.sql"/>
     <include file="db/changelog/002-create-stock-exchange.sql"/>
+    <include file="db/changelog/003-create-stock.sql"/>
 
 </databaseChangeLog>

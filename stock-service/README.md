@@ -32,6 +32,7 @@ The service uses:
 - `RestClientConfig` and configuration properties for `exchange-service`
 - `ExchangeServiceClient` adapter for `exchange-service`
 - `StockExchange` JPA entity and repository
+- `Stock` JPA entity and repository
 - startup/admin CSV import flow for stock exchange reference data
 - stock exchange listing and market-status API
 - stock exchange active-toggle endpoint for testing
@@ -55,6 +56,7 @@ That means:
 - authentication and health checks work
 - internal integration with `exchange-service` exists
 - stock exchange reference data can be imported from CSV into the database
+- stock instrument metadata can now be persisted as a dedicated `stock` entity
 - stock exchange work-time checks are implemented
 - holiday support is intentionally left behind an interface and currently uses a no-op stub
 
@@ -67,6 +69,7 @@ The most important parts of the service are:
 - `client` adapter for calling `exchange-service`
 - `controller` bootstrap REST endpoints
 - `repository` persistence access for stock exchanges
+- `domain` persisted stock exchange and stock entities with derived stock calculations
 - `service` CSV import, startup seeding, holiday abstraction, and market-status logic
 - `dto` request/response models for internal responses
 
@@ -247,8 +250,22 @@ The stock-service schema currently includes:
 
 - `src/main/resources/db/changelog/001-baseline.sql`
 - `src/main/resources/db/changelog/002-create-stock-exchange.sql`
+- `src/main/resources/db/changelog/003-create-stock.sql`
 
 The `stock_exchange` table stores exchange metadata and trading sessions used by the CSV import flow.
+
+The `stock` table stores:
+
+- unique ticker
+- display name
+- outstanding share count
+- dividend yield
+
+Derived values are intentionally kept in the Java domain model instead of being persisted:
+
+- `contractSize` is a constant with value `1`
+- `maintenanceMargin(price)` is calculated as `0.5 * price`
+- `marketCap(price)` is calculated as `outstandingShares * price`
 
 Liquibase scripts are located in:
 
@@ -476,6 +493,7 @@ Note:
 
 - unit tests cover the CSV parsing and idempotent import logic
 - unit tests also cover market-phase calculation and controller security for the new stock exchange endpoints
+- unit tests now also cover the new `Stock` entity derived calculations and JPA/Liquibase persistence mapping
 - the tests do not start the full application stack
 
 ## Swagger and OpenAPI

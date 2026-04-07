@@ -31,7 +31,32 @@ import java.util.stream.Collectors;
 
 /**
  * Imports stock exchange reference data from a CSV file and upserts it into the database.
- * The import is idempotent and keyed by the exchange MIC code.
+ *
+ * <p>The import is idempotent and keyed by the exchange MIC code.
+ * That means:
+ *
+ * <ul>
+ *     <li>if a MIC code does not exist yet, a new exchange is created</li>
+ *     <li>if a MIC code already exists and at least one imported value changed, the exchange is updated</li>
+ *     <li>if a MIC code already exists and all imported values are the same, the row is counted as unchanged</li>
+ * </ul>
+ *
+ * <p>This service currently supports two CSV header styles:
+ *
+ * <ul>
+ *     <li>legacy format using headers such as {@code Acronym}, {@code MIC Code}, {@code Polity}</li>
+ *     <li>newer format using headers such as {@code Exchange Acronym}, {@code Exchange Mic Code}, {@code Country}</li>
+ * </ul>
+ *
+ * <p>The default seed file is now {@code classpath:seed/exchanges.csv}.
+ * That file contains regular market hours but does not contain pre-market, post-market, or {@code Is Active} columns,
+ * so this importer fills those missing optional values as follows:
+ *
+ * <ul>
+ *     <li>pre-market times -> {@code null}</li>
+ *     <li>post-market times -> {@code null}</li>
+ *     <li>{@code isActive} -> {@code true}</li>
+ * </ul>
  */
 @Service
 @RequiredArgsConstructor
@@ -64,7 +89,9 @@ public class CsvImportService {
     /**
      * Imports the configured CSV source from application properties.
      *
-     * @return import summary
+     * <p>This is the entry point used by startup seeding and by the manual admin import endpoint.
+     *
+     * @return import summary with created, updated, and unchanged counters
      */
     @Transactional
     public StockExchangeImportResponse importFromConfiguredCsv() {
@@ -73,6 +100,13 @@ public class CsvImportService {
 
     /**
      * Imports stock exchanges from the provided Spring resource location.
+     *
+     * <p>Example locations:
+     *
+     * <ul>
+     *     <li>{@code classpath:seed/exchanges.csv}</li>
+     *     <li>{@code file:./custom/exchanges.csv}</li>
+     * </ul>
      *
      * @param csvLocation Spring resource location, for example {@code classpath:seed/exchanges.csv}
      * @return import summary
@@ -86,6 +120,13 @@ public class CsvImportService {
     /**
      * Imports stock exchanges from the provided resource.
      *
+     * <p>This method intentionally splits the process into two steps:
+     *
+     * <ol>
+     *     <li>parse and validate CSV rows into an intermediate row model</li>
+     *     <li>persist those rows as create/update/unchanged database operations</li>
+     * </ol>
+     *
      * @param resource CSV resource
      * @param source source label used in the response
      * @return import summary
@@ -96,6 +137,28 @@ public class CsvImportService {
         return persistRows(rows, source);
     }
 
+    /**
+     * Persists parsed CSV rows into the database using MIC code as the stable business key.
+     *
+     * <p>The method first loads all existing exchanges for the imported MIC codes in one repository call.
+     * It then decides row by row whether to:
+     *
+     * <ul>
+     *     <li>create a new entity</li>
+     *     <li>update an existing entity</li>
+     *     <li>skip persistence because nothing changed</li>
+     * </ul>
+     *
+     * <p>Example:
+     * if the CSV contains {@code XNAS} and the database already contains {@code XNAS} with the same values,
+     * the row is counted as unchanged.
+     * If {@code XNAS} exists but the open time changed from {@code 09:00} to {@code 09:30},
+     * the entity is updated and counted in {@code updatedCount}.
+     *
+     * @param rows validated parsed rows
+     * @param source human-readable source label
+     * @return import summary
+     */
     private StockExchangeImportResponse persistRows(List<StockExchangeCsvRow> rows, String source) {
         Collection<String> micCodes = rows.stream()
                 .map(StockExchangeCsvRow::exchangeMICCode)
@@ -142,6 +205,26 @@ public class CsvImportService {
         );
     }
 
+    /**
+     * Reads and validates a CSV resource and converts it into intermediate row objects.
+     *
+     * <p>Validation performed here includes:
+     *
+     * <ul>
+     *     <li>resource existence</li>
+     *     <li>non-empty header row</li>
+     *     <li>presence of required headers or their aliases</li>
+     *     <li>consistent column count per row</li>
+     *     <li>duplicate MIC-code detection inside the same CSV file</li>
+     *     <li>valid time and boolean parsing</li>
+     * </ul>
+     *
+     * <p>The parser keeps row numbers in error messages so invalid files are easy to debug.
+     *
+     * @param resource CSV resource to read
+     * @param source human-readable source label used in error messages
+     * @return parsed CSV rows ready for persistence
+     */
     private List<StockExchangeCsvRow> parseCsv(Resource resource, String source) {
         if (!resource.exists()) {
             throw new IllegalStateException("Stock exchange CSV resource does not exist: " + source);
@@ -197,6 +280,16 @@ public class CsvImportService {
         }
     }
 
+    /**
+     * Builds a header-name to column-index map from the first CSV row.
+     *
+     * <p>Headers are trimmed before indexing.
+     * Duplicate header names are rejected because they would make column resolution ambiguous.
+     *
+     * @param headers parsed header row values
+     * @param source source label used in error messages
+     * @return header-index map
+     */
     private Map<String, Integer> indexHeaders(List<String> headers, String source) {
         Map<String, Integer> headerIndexes = new HashMap<>();
         for (int i = 0; i < headers.size(); i++) {
@@ -208,6 +301,22 @@ public class CsvImportService {
         return headerIndexes;
     }
 
+    /**
+     * Validates that all required business columns exist, allowing for supported aliases.
+     *
+     * <p>Examples:
+     *
+     * <ul>
+     *     <li>for the acronym column, either {@code Acronym} or {@code Exchange Acronym} is accepted</li>
+     *     <li>for the MIC code column, either {@code MIC Code} or {@code Exchange Mic Code} is accepted</li>
+     *     <li>for the country/polity column, either {@code Polity} or {@code Country} is accepted</li>
+     * </ul>
+     *
+     * <p>Optional columns such as pre-market, post-market, and {@code Is Active} are not checked here.
+     *
+     * @param headerIndexes indexed CSV headers
+     * @param source source label used in error messages
+     */
     private void validateHeaders(Map<String, Integer> headerIndexes, String source) {
         for (List<String> aliases : REQUIRED_HEADER_ALIASES) {
             if (resolveHeader(headerIndexes, aliases) == null) {
@@ -218,6 +327,25 @@ public class CsvImportService {
         }
     }
 
+    /**
+     * Converts one parsed CSV row into the intermediate row record used by the importer.
+     *
+     * <p>This method resolves header aliases and applies defaulting rules for optional values.
+     *
+     * <p>For the current {@code exchanges.csv} format:
+     *
+     * <ul>
+     *     <li>{@code Country} is mapped into the entity field {@code polity}</li>
+     *     <li>missing pre/post-market columns become {@code null}</li>
+     *     <li>missing {@code Is Active} becomes {@code true}</li>
+     * </ul>
+     *
+     * @param values row values
+     * @param headerIndexes indexed CSV headers
+     * @param lineNumber current CSV row number for error reporting
+     * @param source source label used in error messages
+     * @return parsed row model
+     */
     private StockExchangeCsvRow mapRow(
             List<String> values,
             Map<String, Integer> headerIndexes,
@@ -241,6 +369,18 @@ public class CsvImportService {
         );
     }
 
+    /**
+     * Resolves a required CSV value through one or more accepted header names.
+     *
+     * <p>If the column does not exist or the resolved value is blank, the file is rejected.
+     *
+     * @param values current row values
+     * @param headerIndexes indexed CSV headers
+     * @param headers accepted header aliases
+     * @param lineNumber current row number for error reporting
+     * @param source source label used in error messages
+     * @return non-blank required value
+     */
     private String requiredValue(
             List<String> values,
             Map<String, Integer> headerIndexes,
@@ -257,6 +397,17 @@ public class CsvImportService {
         return value;
     }
 
+    /**
+     * Resolves an optional CSV value through one or more accepted header names.
+     *
+     * <p>If none of the accepted headers exist, the method returns {@code null}.
+     * This is how the importer stays compatible with both the old and new CSV layouts.
+     *
+     * @param values current row values
+     * @param headerIndexes indexed CSV headers
+     * @param headers accepted header aliases
+     * @return trimmed value or {@code null}
+     */
     private String optionalValue(List<String> values, Map<String, Integer> headerIndexes, List<String> headers) {
         String resolvedHeader = resolveHeader(headerIndexes, headers);
         if (resolvedHeader == null) {
@@ -269,6 +420,17 @@ public class CsvImportService {
         return values.get(index).trim();
     }
 
+    /**
+     * Resolves which header alias is actually present in the current file.
+     *
+     * <p>Example:
+     * if the accepted aliases are {@code ["MIC Code", "Exchange Mic Code"]}
+     * and the file contains {@code Exchange Mic Code}, that exact header name is returned.
+     *
+     * @param headerIndexes indexed CSV headers
+     * @param aliases accepted header aliases
+     * @return concrete header name present in the file or {@code null}
+     */
     private String resolveHeader(Map<String, Integer> headerIndexes, List<String> aliases) {
         for (String alias : aliases) {
             if (headerIndexes.containsKey(alias)) {
@@ -278,6 +440,23 @@ public class CsvImportService {
         return null;
     }
 
+    /**
+     * Parses a required time column using {@code H:mm} format.
+     *
+     * <p>Accepted examples:
+     *
+     * <ul>
+     *     <li>{@code 9:30}</li>
+     *     <li>{@code 09:30}</li>
+     *     <li>{@code 17:25}</li>
+     * </ul>
+     *
+     * @param rawValue raw CSV value
+     * @param header column name used in error messages
+     * @param lineNumber row number used in error messages
+     * @param source source label used in error messages
+     * @return parsed local time
+     */
     private LocalTime parseTime(String rawValue, String header, int lineNumber, String source) {
         try {
             return LocalTime.parse(rawValue, TIME_FORMATTER);
@@ -290,6 +469,19 @@ public class CsvImportService {
         }
     }
 
+    /**
+     * Parses an optional time column.
+     *
+     * <p>Blank or missing values are returned as {@code null}.
+     * This is important for the new {@code exchanges.csv}, which currently does not define
+     * pre-market or post-market windows.
+     *
+     * @param rawValue raw CSV value
+     * @param header column name used in error messages
+     * @param lineNumber row number used in error messages
+     * @param source source label used in error messages
+     * @return parsed local time or {@code null}
+     */
     private LocalTime parseOptionalTime(String rawValue, String header, int lineNumber, String source) {
         if (rawValue == null || rawValue.isBlank()) {
             return null;
@@ -297,6 +489,20 @@ public class CsvImportService {
         return parseTime(rawValue, header, lineNumber, source);
     }
 
+    /**
+     * Parses a required boolean field from the CSV.
+     *
+     * <p>Supported true values:
+     * {@code true}, {@code 1}, {@code yes}
+     *
+     * <p>Supported false values:
+     * {@code false}, {@code 0}, {@code no}
+     *
+     * @param rawValue raw CSV value
+     * @param lineNumber row number used in error messages
+     * @param source source label used in error messages
+     * @return parsed boolean value
+     */
     private boolean parseBoolean(String rawValue, int lineNumber, String source) {
         return switch (rawValue.trim().toLowerCase(Locale.ROOT)) {
             case "true", "1", "yes" -> true;
@@ -307,6 +513,16 @@ public class CsvImportService {
         };
     }
 
+    /**
+     * Parses an optional boolean field and defaults it to {@code true} when missing.
+     *
+     * <p>This default exists because the new seed file does not provide an {@code Is Active} column.
+     * Without this fallback, every new CSV would have to explicitly include the flag even when all
+     * imported exchanges should start as active.
+     *
+     * @param rawValue raw CSV value or {@code null}
+     * @return parsed value or {@code true} when the field is absent
+     */
     private boolean parseOptionalBoolean(String rawValue) {
         if (rawValue == null || rawValue.isBlank()) {
             return true;
@@ -314,6 +530,28 @@ public class CsvImportService {
         return parseBoolean(rawValue, 0, "CSV");
     }
 
+    /**
+     * Parses one CSV line while respecting quoted values and escaped quotes.
+     *
+     * <p>Important behavior:
+     *
+     * <ul>
+     *     <li>commas outside quotes split columns</li>
+     *     <li>commas inside quotes are preserved as part of the value</li>
+     *     <li>double quotes inside a quoted field are unescaped</li>
+     *     <li>all returned values are trimmed</li>
+     * </ul>
+     *
+     * <p>Example:
+     * the line
+     * {@code "Nasdaq, Inc.",NASDAQ,XNAS,...}
+     * is parsed so that {@code Nasdaq, Inc.} stays a single field.
+     *
+     * @param line raw CSV line
+     * @param lineNumber current CSV row number for error reporting
+     * @param source source label used in error messages
+     * @return parsed row values
+     */
     private List<String> parseCsvLine(String line, int lineNumber, String source) {
         List<String> values = new ArrayList<>();
         StringBuilder currentValue = new StringBuilder();
@@ -350,6 +588,15 @@ public class CsvImportService {
         return values;
     }
 
+    /**
+     * Copies parsed row values into a persistent entity.
+     *
+     * <p>This method performs the raw field assignment only.
+     * It is used both when creating a brand-new exchange and when updating an existing one.
+     *
+     * @param entity target entity
+     * @param row parsed CSV row
+     */
     private void applyRow(StockExchange entity, StockExchangeCsvRow row) {
         entity.setExchangeName(row.exchangeName());
         entity.setExchangeAcronym(row.exchangeAcronym());
@@ -366,6 +613,15 @@ public class CsvImportService {
         entity.setIsActive(row.isActive());
     }
 
+    /**
+     * Updates an existing entity only when at least one imported value changed.
+     *
+     * <p>This is what allows the import summary to distinguish between updated rows and unchanged rows.
+     *
+     * @param entity existing entity from the database
+     * @param row parsed CSV row
+     * @return {@code true} if the entity was changed and should be persisted
+     */
     private boolean applyRowIfChanged(StockExchange entity, StockExchangeCsvRow row) {
         if (matches(entity, row)) {
             return false;
@@ -375,6 +631,15 @@ public class CsvImportService {
         return true;
     }
 
+    /**
+     * Compares all imported business fields between the existing entity and the parsed row.
+     *
+     * <p>If this method returns {@code true}, the importer treats the row as unchanged and skips persistence.
+     *
+     * @param entity existing entity from the database
+     * @param row parsed CSV row
+     * @return {@code true} when all imported fields already match
+     */
     private boolean matches(StockExchange entity, StockExchangeCsvRow row) {
         return Objects.equals(entity.getExchangeName(), row.exchangeName())
                 && Objects.equals(entity.getExchangeAcronym(), row.exchangeAcronym())
@@ -391,6 +656,12 @@ public class CsvImportService {
                 && Objects.equals(entity.getIsActive(), row.isActive());
     }
 
+    /**
+     * Intermediate immutable representation of one validated CSV row.
+     *
+     * <p>This record exists so parsing/validation is separated from persistence.
+     * The importer first converts the file into a clean row model and only then applies it to JPA entities.
+     */
     private record StockExchangeCsvRow(
             String exchangeName,
             String exchangeAcronym,
