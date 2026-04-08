@@ -42,6 +42,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -286,6 +287,58 @@ class OrderCreationServiceTest {
         assertThat(response.getApprovedBy()).isEqualTo(88L);
         verify(accountClient, never()).transfer(any(AccountTransactionRequest.class));
         verify(orderExecutionService).executeOrderAsync(100L);
+    }
+
+    @Test
+    void approveOrder_usesNoCommissionConversionForCrossCurrencyEmployeeFeeTransfer() {
+        Order pendingOrder = new Order();
+        pendingOrder.setId(100L);
+        pendingOrder.setUserId(2L);
+        pendingOrder.setListingId(42L);
+        pendingOrder.setOrderType(OrderType.MARKET);
+        pendingOrder.setQuantity(10);
+        pendingOrder.setContractSize(1);
+        pendingOrder.setPricePerUnit(new BigDecimal("101.00"));
+        pendingOrder.setDirection(OrderDirection.BUY);
+        pendingOrder.setRemainingPortions(10);
+        pendingOrder.setStatus(OrderStatus.PENDING);
+        pendingOrder.setAccountId(5L);
+        storedOrder.set(pendingOrder);
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(pendingOrder));
+
+        ActuaryInfo agent = new ActuaryInfo();
+        agent.setEmployeeId(2L);
+        when(actuaryInfoRepository.findByEmployeeId(2L)).thenReturn(Optional.of(agent));
+
+        BankAccountDto fundingBankAccount = new BankAccountDto();
+        fundingBankAccount.setAccountId(998L);
+        BankAccountDto feeBankAccount = new BankAccountDto();
+        feeBankAccount.setAccountId(999L);
+        when(employeeClient.getBankAccount("USD")).thenReturn(fundingBankAccount, feeBankAccount);
+
+        AccountDetailsDto fundingAccount = new AccountDetailsDto();
+        fundingAccount.setAccountNumber("EMP-EUR");
+        fundingAccount.setCurrency("EUR");
+        fundingAccount.setOwnerId(2L);
+        when(accountClient.getAccountDetails(998L)).thenReturn(fundingAccount);
+
+        AccountDetailsDto feeAccount = new AccountDetailsDto();
+        feeAccount.setAccountNumber("BANK-USD");
+        feeAccount.setCurrency("USD");
+        feeAccount.setOwnerId(0L);
+        when(accountClient.getAccountDetails(999L)).thenReturn(feeAccount);
+
+        ExchangeRateDto conversion = new ExchangeRateDto();
+        conversion.setConvertedAmount(new BigDecimal("6.50"));
+        conversion.setCommission(BigDecimal.ZERO);
+        lenient().when(exchangeClient.calculateWithoutCommission("EUR", "USD", new BigDecimal("7.00"))).thenReturn(conversion);
+
+        service.approveOrder(88L, 100L);
+
+        verify(exchangeClient).calculateWithoutCommission(org.mockito.ArgumentMatchers.eq("EUR"), org.mockito.ArgumentMatchers.eq("USD"), any(BigDecimal.class));
+        verify(exchangeClient, never()).calculate(org.mockito.ArgumentMatchers.eq("EUR"), org.mockito.ArgumentMatchers.eq("USD"), any(BigDecimal.class));
+        verify(accountClient).transaction(any(PaymentDto.class));
+        verify(accountClient, never()).transfer(any(AccountTransactionRequest.class));
     }
 
     @Test
@@ -901,6 +954,59 @@ class OrderCreationServiceTest {
     }
 
     @Test
+    void confirmOrder_preservesCreationTimeExchangeFlags() {
+        service.createBuyOrder(clientUser, buyRequest);
+
+        exchangeStatus.setClosed(true);
+        exchangeStatus.setOpen(false);
+        exchangeStatus.setAfterHours(true);
+
+        OrderResponse response = service.confirmOrder(clientUser, 100L);
+
+        assertThat(response.getExchangeClosed()).isFalse();
+        assertThat(response.getAfterHours()).isFalse();
+        assertThat(storedOrder.get().getExchangeClosed()).isFalse();
+        assertThat(storedOrder.get().getAfterHours()).isFalse();
+    }
+
+    @Test
+    void getOrders_allExcludesPendingConfirmationDrafts() {
+        Order draftOrder = new Order();
+        draftOrder.setId(401L);
+        draftOrder.setUserId(2L);
+        draftOrder.setListingId(42L);
+        draftOrder.setOrderType(OrderType.MARKET);
+        draftOrder.setQuantity(1);
+        draftOrder.setContractSize(1);
+        draftOrder.setPricePerUnit(new BigDecimal("100.00"));
+        draftOrder.setDirection(OrderDirection.BUY);
+        draftOrder.setRemainingPortions(1);
+        draftOrder.setStatus(OrderStatus.PENDING_CONFIRMATION);
+
+        Order pendingOrder = new Order();
+        pendingOrder.setId(402L);
+        pendingOrder.setUserId(2L);
+        pendingOrder.setListingId(42L);
+        pendingOrder.setOrderType(OrderType.MARKET);
+        pendingOrder.setQuantity(1);
+        pendingOrder.setContractSize(1);
+        pendingOrder.setPricePerUnit(new BigDecimal("100.00"));
+        pendingOrder.setDirection(OrderDirection.BUY);
+        pendingOrder.setRemainingPortions(1);
+        pendingOrder.setStatus(OrderStatus.PENDING);
+
+        ActuaryInfo actuaryInfo = new ActuaryInfo();
+        actuaryInfo.setEmployeeId(2L);
+        when(orderRepository.findAll()).thenReturn(List.of(draftOrder, pendingOrder));
+        when(actuaryInfoRepository.findByEmployeeIdIn(java.util.Set.of(2L))).thenReturn(List.of(actuaryInfo));
+
+        List<OrderOverviewResponse> response = service.getOrders(OrderOverviewStatusFilter.ALL);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.getFirst().getOrderId()).isEqualTo(402L);
+    }
+
+    @Test
     void cancellationReleasesReservationsAndExposure() {
         ActuaryInfo agent = new ActuaryInfo();
         agent.setEmployeeId(2L);
@@ -928,6 +1034,25 @@ class OrderCreationServiceTest {
 
         assertThat(portfolio.getReservedQuantity()).isZero();
         assertThat(agent.getReservedLimit()).isEqualByComparingTo("0.0000");
+    }
+
+    @Test
+    void releaseAgentExposure_handlesZeroRemainingPortionsSafely() {
+        Order order = new Order();
+        order.setUserId(2L);
+        order.setQuantity(10);
+        order.setRemainingPortions(0);
+        order.setReservedLimitExposure(new BigDecimal("250.0000"));
+
+        ActuaryInfo agent = new ActuaryInfo();
+        agent.setEmployeeId(2L);
+        agent.setReservedLimit(new BigDecimal("300.0000"));
+        when(actuaryInfoRepository.findByEmployeeIdForUpdate(2L)).thenReturn(Optional.of(agent));
+
+        ReflectionTestUtils.invokeMethod(service, "releaseAgentExposure", order, 3);
+
+        assertThat(agent.getReservedLimit()).isEqualByComparingTo("50.0000");
+        assertThat(order.getReservedLimitExposure()).isEqualByComparingTo("0.0000");
     }
 
     @Test

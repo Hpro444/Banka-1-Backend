@@ -55,7 +55,8 @@ public class TaxController {
      *
      * <p>
      * Used by other backend services or for internal orchestration.
-     * Same logic as public API endpoint but without UI/security concerns.
+     * Same logic as public API endpoint but secured with the inter-service
+     * {@code SERVICE} role used by order-service JWT generation.
      *
      * @return HTTP 200 if successfully triggered
      */

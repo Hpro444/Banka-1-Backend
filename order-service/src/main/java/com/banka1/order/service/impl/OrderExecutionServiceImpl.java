@@ -137,7 +137,7 @@ public class OrderExecutionServiceImpl implements OrderExecutionService {
     private boolean activateIfEligible(Order order, StockListingDto listing) {
         if (order.getOrderType() == OrderType.STOP) {
             boolean activated = order.getDirection() == OrderDirection.BUY
-                    ? listing.getAsk().compareTo(order.getStopValue()) > 0
+                    ? listing.getAsk().compareTo(order.getStopValue()) >= 0
                     : listing.getBid().compareTo(order.getStopValue()) < 0;
             if (activated) {
                 order.setOrderType(OrderType.MARKET);

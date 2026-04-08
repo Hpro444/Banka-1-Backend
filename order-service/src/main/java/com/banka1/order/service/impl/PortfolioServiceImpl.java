@@ -32,6 +32,9 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Service implementation for managing user portfolios.
@@ -71,9 +74,13 @@ public class PortfolioServiceImpl implements PortfolioService {
     public PortfolioSummaryResponse getPortfolio(AuthenticatedUser user) {
 
         List<Portfolio> holdings = portfolioRepository.findByUserId(user.userId());
+        Map<Long, StockListingDto> listingsById = holdings.stream()
+                .map(Portfolio::getListingId)
+                .distinct()
+                .collect(Collectors.toMap(Function.identity(), stockClient::getListing));
 
         List<PortfolioResponse> responses = holdings.stream()
-                .map(this::mapToResponse)
+                .map(portfolio -> mapToResponse(portfolio, listingsById.get(portfolio.getListingId())))
                 .toList();
 
         BigDecimal totalProfit = responses.stream()
@@ -208,9 +215,7 @@ public class PortfolioServiceImpl implements PortfolioService {
      * @param portfolio entity to be mapped
      * @return mapped response DTO
      */
-    private PortfolioResponse mapToResponse(Portfolio portfolio) {
-
-        StockListingDto listing = stockClient.getListing(portfolio.getListingId());
+    private PortfolioResponse mapToResponse(Portfolio portfolio, StockListingDto listing) {
 
         BigDecimal currentPrice = listing.getPrice();
         BigDecimal avgPrice = portfolio.getAveragePurchasePrice();

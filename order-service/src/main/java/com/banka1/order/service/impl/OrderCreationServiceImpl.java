@@ -125,7 +125,9 @@ public class OrderCreationServiceImpl implements OrderCreationService {
     @Transactional(readOnly = true)
     public List<OrderOverviewResponse> getOrders(OrderOverviewStatusFilter statusFilter) {
         List<Order> orders = statusFilter == null || statusFilter == OrderOverviewStatusFilter.ALL
-                ? orderRepository.findAll()
+                ? orderRepository.findAll().stream()
+                .filter(order -> order.getStatus() != OrderStatus.PENDING_CONFIRMATION)
+                .toList()
                 : orderRepository.findByStatus(OrderStatus.valueOf(statusFilter.name()));
 
         Set<Long> listingIds = new HashSet<>();
@@ -164,9 +166,6 @@ public class OrderCreationServiceImpl implements OrderCreationService {
 
         StockListingDto listing = stockClient.getListing(order.getListingId());
         validateTradingAccess(user, listing);
-        ExchangeWindow exchangeWindow = resolveExchangeWindow(listing);
-        order.setAfterHours(exchangeWindow.afterHours());
-        order.setExchangeClosed(exchangeWindow.closed());
 
         BigDecimal approximatePrice = calculateApproximatePrice(order.getOrderType(), order.getDirection(), listing,
                 order.getQuantity(), order.getLimitValue(), order.getStopValue());
@@ -178,7 +177,7 @@ public class OrderCreationServiceImpl implements OrderCreationService {
             order.setRemainingPortions(0);
             order.setIsDone(true);
             order = orderRepository.save(order);
-            return mapToResponse(order, approximatePrice, fee, exchangeWindow.closed());
+            return mapToResponse(order, approximatePrice, fee, order.getExchangeClosed());
         }
 
         Long fundingAccountId = determineFundingAccountId(user.userId(), order.getAccountId(), listing.getCurrency());
@@ -204,7 +203,7 @@ public class OrderCreationServiceImpl implements OrderCreationService {
         if (decision.status() == OrderStatus.APPROVED) {
             orderExecutionService.executeOrderAsync(order.getId());
         }
-        return mapToResponse(order, approximatePrice, fee, exchangeWindow.closed());
+        return mapToResponse(order, approximatePrice, fee, order.getExchangeClosed());
     }
 
     @Override
@@ -244,7 +243,7 @@ public class OrderCreationServiceImpl implements OrderCreationService {
                 order.getQuantity(), order.getLimitValue(), order.getStopValue());
         BigDecimal fee = calculateFee(orderPricingFamily(order.getOrderType()), approximatePrice, listing.getCurrency());
         Long fundingAccountId = determineFundingAccountId(order.getUserId(), order.getAccountId(), listing.getCurrency());
-        transferFee(resolveAuthenticatedActor(order.getUserId()), fundingAccountId, fee, listing.getCurrency());
+        transferFee(order.getUserId(), fundingAccountId, fee, listing.getCurrency());
 
         order.setStatus(OrderStatus.APPROVED);
         order.setApprovedBy(supervisorId);
@@ -517,22 +516,19 @@ public class OrderCreationServiceImpl implements OrderCreationService {
     }
 
     private void transferFee(AuthenticatedUser user, Long fundingAccountId, BigDecimal fee, String currency) {
+        transferFee(fundingAccountId, fee, currency, user.isClient());
+    }
+
+    private void transferFee(Long userId, Long fundingAccountId, BigDecimal fee, String currency) {
+        transferFee(fundingAccountId, fee, currency, !isEmployeeUser(userId));
+    }
+
+    private void transferFee(Long fundingAccountId, BigDecimal fee, String currency, boolean applyConversionFee) {
         BankAccountDto bankAccount = employeeClient.getBankAccount(currency);
-        if (user.isClient()) {
-            transferWithConversionIfNeeded(fundingAccountId, bankAccount.getAccountId(), fee, currency, true, "Order fee");
-            return;
-        }
         if (fundingAccountId != null && fundingAccountId.equals(bankAccount.getAccountId())) {
             return;
         }
-
-        AccountTransactionRequest transferRequest = new AccountTransactionRequest();
-        transferRequest.setFromAccountId(fundingAccountId);
-        transferRequest.setToAccountId(bankAccount.getAccountId());
-        transferRequest.setAmount(fee);
-        transferRequest.setCurrency(currency);
-        transferRequest.setDescription("Order fee");
-        accountClient.transfer(transferRequest);
+        transferWithConversionIfNeeded(fundingAccountId, bankAccount.getAccountId(), fee, currency, applyConversionFee, "Order fee");
     }
 
     private boolean hasPastSettlementDate(StockListingDto listing) {
@@ -748,6 +744,14 @@ public class OrderCreationServiceImpl implements OrderCreationService {
             order.setReservedLimitExposure(BigDecimal.ZERO);
             return;
         }
+        if (order.getRemainingPortions() == null || order.getRemainingPortions() <= 0) {
+            BigDecimal currentReserved = actuaryInfo.getReservedLimit() == null ? BigDecimal.ZERO : actuaryInfo.getReservedLimit();
+            BigDecimal releasable = order.getReservedLimitExposure().min(currentReserved);
+            actuaryInfo.setReservedLimit(currentReserved.subtract(releasable).max(BigDecimal.ZERO));
+            actuaryInfoRepository.save(actuaryInfo);
+            order.setReservedLimitExposure(order.getReservedLimitExposure().subtract(releasable).max(BigDecimal.ZERO));
+            return;
+        }
 
         BigDecimal releasable = order.getReservedLimitExposure()
                 .multiply(BigDecimal.valueOf(quantityToRelease))
@@ -790,14 +794,19 @@ public class OrderCreationServiceImpl implements OrderCreationService {
         accountClient.transaction(payment);
     }
 
-    private AuthenticatedUser resolveAuthenticatedActor(Long userId) {
-        return actuaryInfoRepository.findByEmployeeId(userId).isPresent()
-                ? new AuthenticatedUser(userId, Set.of("AGENT"), Set.of())
-                : new AuthenticatedUser(userId, Set.of("CLIENT_TRADING"), Set.of("TRADING"));
-    }
-
     private int defaultInteger(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    private boolean isEmployeeUser(Long userId) {
+        if (actuaryInfoRepository.findByEmployeeId(userId).isPresent()) {
+            return true;
+        }
+        try {
+            return employeeClient.getEmployee(userId) != null;
+        } catch (RuntimeException ignored) {
+            return false;
+        }
     }
 
     private record ApprovalReservationDecision(OrderStatus status, BigDecimal reservedExposure) {

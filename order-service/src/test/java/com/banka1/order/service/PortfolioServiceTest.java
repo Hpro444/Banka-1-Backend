@@ -40,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -131,6 +132,45 @@ class PortfolioServiceTest {
         assertThat(result.getTotalProfit()).isEqualByComparingTo("876");
         assertThat(result.getYearlyTaxPaid()).isEqualByComparingTo("15.00");
         assertThat(result.getMonthlyTaxDue()).isEqualByComparingTo("5.00");
+    }
+
+    @Test
+    void getPortfolio_reusesListingLookupPerUniqueListingId() {
+        Portfolio duplicateStockPortfolio = new Portfolio();
+        duplicateStockPortfolio.setId(3L);
+        duplicateStockPortfolio.setUserId(1L);
+        duplicateStockPortfolio.setListingId(100L);
+        duplicateStockPortfolio.setListingType(ListingType.STOCK);
+        duplicateStockPortfolio.setQuantity(4);
+        duplicateStockPortfolio.setAveragePurchasePrice(BigDecimal.valueOf(80));
+        duplicateStockPortfolio.setPublicQuantity(0);
+        duplicateStockPortfolio.setLastModified(LocalDateTime.now());
+
+        when(portfolioRepository.findByUserId(1L)).thenReturn(List.of(stockPortfolio, duplicateStockPortfolio, optionPortfolio));
+
+        StockListingDto stockListing = new StockListingDto();
+        stockListing.setId(100L);
+        stockListing.setListingType(ListingType.STOCK);
+        stockListing.setPrice(BigDecimal.valueOf(150));
+        stockListing.setTicker("AAPL");
+
+        StockListingDto optionListing = new StockListingDto();
+        optionListing.setId(200L);
+        optionListing.setListingType(ListingType.OPTION);
+        optionListing.setPrice(BigDecimal.valueOf(200));
+        optionListing.setTicker("AAPL-CALL");
+        optionListing.setStrikePrice(BigDecimal.valueOf(100));
+        optionListing.setSettlementDate(LocalDate.now().plusDays(1));
+        optionListing.setOptionType(OptionType.CALL);
+
+        when(stockClient.getListing(100L)).thenReturn(stockListing);
+        when(stockClient.getListing(200L)).thenReturn(optionListing);
+
+        PortfolioSummaryResponse result = portfolioService.getPortfolio(clientUser);
+
+        assertThat(result.getHoldings()).hasSize(3);
+        verify(stockClient, times(1)).getListing(100L);
+        verify(stockClient, times(1)).getListing(200L);
     }
 
     @Test

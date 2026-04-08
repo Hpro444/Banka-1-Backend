@@ -58,19 +58,18 @@ public class AccountClientImpl implements AccountClient {
      */
     @Override
     public void transfer(AccountTransactionRequest request) {
-        accountRestClient.post()
-                .uri("/internal/accounts/transaction")
-                .body(request)
-                .retrieve()
-                .toBodilessEntity();
+        postTransaction(request).toBodilessEntity();
     }
 
     @Override
     public UpdatedBalanceResponseDto transaction(PaymentDto payment) {
+        return postTransaction(payment).body(UpdatedBalanceResponseDto.class);
+    }
+
+    private RestClient.ResponseSpec postTransaction(Object payload) {
         return accountRestClient.post()
                 .uri("/internal/accounts/transaction")
-                .body(payment)
-                .retrieve()
-                .body(UpdatedBalanceResponseDto.class);
+                .body(payload)
+                .retrieve();
     }
 }

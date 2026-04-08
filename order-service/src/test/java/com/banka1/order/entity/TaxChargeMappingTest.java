@@ -6,6 +6,7 @@ import jakarta.persistence.ManyToOne;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -15,6 +16,15 @@ class TaxChargeMappingTest {
     void taxCharge_exposesLazySellAndBuyTransactionRelationships() throws Exception {
         assertTransactionRelationship("sellTransaction", "sell_transaction_id");
         assertTransactionRelationship("buyTransaction", "buy_transaction_id");
+    }
+
+    @Test
+    void prePersist_initializesCreatedAtWhenMissing() {
+        TaxCharge taxCharge = new TaxCharge();
+
+        taxCharge.initializeCreatedAt();
+
+        assertThat(taxCharge.getCreatedAt()).isBeforeOrEqualTo(LocalDateTime.now());
     }
 
     private void assertTransactionRelationship(String fieldName, String joinColumnName) throws Exception {
