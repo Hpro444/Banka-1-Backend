@@ -70,14 +70,14 @@ jobs:
     if: ${{ needs.detect-changes.outputs.services != '[]' && needs.detect-changes.outputs.services != '' }}
     runs-on: ubuntu-latest
 
-    # ✅ ADD THIS BLOCK
+    # ✅ PostgreSQL service (matches app config)
     services:
       postgres:
         image: postgres:15
         ports:
-          - 5432:5432
+          - 5441:5432
         env:
-          POSTGRES_DB: test_db
+          POSTGRES_DB: stock_db
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         options: >-
@@ -90,6 +90,13 @@ jobs:
       fail-fast: false
       matrix:
         service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+
+    env:
+      STOCK_DB_HOST: localhost
+      STOCK_DB_PORT: 5441
+      STOCK_DB_NAME: stock_db
+      STOCK_DB_USER: postgres
+      STOCK_DB_PASSWORD: postgres
 
     steps:
       - uses: actions/checkout@v4.2.2
@@ -105,14 +112,16 @@ jobs:
         with:
           gradle-version: '8.14'
 
-      # ✅ WAIT FOR DB
+      # ✅ Wait for DB to be ready
       - name: Wait for PostgreSQL
         run: |
-          for i in {1..15}; do
-            pg_isready -h localhost -p 5432 -U postgres && break
+          for i in {1..20}; do
+            pg_isready -h localhost -p 5441 -U postgres && exit 0
             echo "Waiting for PostgreSQL..."
             sleep 2
           done
+          echo "Postgres failed to start"
+          exit 1
 
       - name: Publish shared libraries to mavenLocal
         run: |
@@ -128,12 +137,7 @@ jobs:
           SERVICE="${{ matrix.service }}"
           gradle ":${SERVICE}:build" -x test --no-daemon --warning-mode none --console plain
 
-      # ✅ PASS DB CONFIG TO SPRING
       - name: Test
-        env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/test_db
-          SPRING_DATASOURCE_USERNAME: postgres
-          SPRING_DATASOURCE_PASSWORD: postgres
         run: |
           SERVICE="${{ matrix.service }}"
           gradle ":${SERVICE}:test" --no-daemon --warning-mode none --console plain
