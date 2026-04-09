@@ -166,6 +166,7 @@ public class LoanServiceImplementation implements LoanService {
             loan.setCurrency(loanRequest.getCurrency());
             //todo ovo bi trebalo da radi ali proveri
             loan.setStatus(Status.ACTIVE);
+            loan.setClientId(loanRequest.getClientId());
             loan.setUserEmail(loanRequest.getUserEmail());
             loan.setUsername(loanRequest.getUsername());
             loanRepository.save(loan);
@@ -251,11 +252,11 @@ public class LoanServiceImplementation implements LoanService {
 
     @Override
     public LoanInfoResponseDto info(Jwt jwt, Long id) {
-        if(!(employeeRoles.contains(jwt.getClaim(roles).toString()) || ((Number) jwt.getClaim(appPropertiesId)).longValue()==id))
-            throw new IllegalArgumentException("Nemas dozvolu za ovu metodu");
         Loan loan=loanRepository.findById(id).orElse(null);
         if(loan==null)
             throw new IllegalArgumentException("Ne postoji loan sa ovim id");
+        if(!(employeeRoles.contains(jwt.getClaim(roles).toString()) || ((Number) jwt.getClaim(appPropertiesId)).longValue()==loan.getClientId()))
+            throw new IllegalArgumentException("Nemas dozvolu za ovu metodu");
         List<InstallmentResponseDto>list=new ArrayList<>();
         List<Installment> installments=loan.getInstallments();
         for(Installment x:installments)
