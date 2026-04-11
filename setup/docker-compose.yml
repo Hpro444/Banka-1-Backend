@@ -839,6 +839,7 @@ services:
       VERIFICATION_SERVER_PORT: ${VERIFICATION_SERVER_PORT:-8086}
       TRANSACTION_SERVER_PORT: ${TRANSACTION_SERVER_PORT:-8087}
       CARD_SERVICE_PORT: ${CARD_SERVER_PORT:-8087}
+      CREDIT_SERVER_PORT: ${CREDIT_SERVER_PORT:-8089}
       NOTIFICATION_SERVICE_PORT: ${NOTIFICATION_SERVER_PORT:-8006}
       ORDER_SERVER_PORT: ${ORDER_SERVER_PORT:-8088}
     depends_on:
@@ -855,6 +856,8 @@ services:
       verification-service:
         condition: service_healthy
       transaction-service:
+        condition: service_healthy
+      credit-service:
         condition: service_healthy
       notification-service:
         condition: service_healthy
