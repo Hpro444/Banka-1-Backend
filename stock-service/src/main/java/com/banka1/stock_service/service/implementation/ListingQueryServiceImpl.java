@@ -657,6 +657,10 @@ public class ListingQueryServiceImpl implements ListingQueryService {
                 option.getStrikePrice(),
                 option.getImpliedVolatility(),
                 option.getOpenInterest(),
+                option.getLastPrice(),
+                option.getBid(),
+                option.getAsk(),
+                option.getVolume(),
                 option.isInTheMoney(stockPrice)
         );
     }

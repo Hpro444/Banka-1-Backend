@@ -31,13 +31,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * WebMvc tests for {@link StockMarketDataAdminController}.
+ * WebMvc tests for {@link StockMarketDataRefreshAdminController}.
  */
-@WebMvcTest(StockMarketDataAdminController.class)
+@WebMvcTest(StockMarketDataRefreshAdminController.class)
 @AutoConfigureMockMvc
-@Import(StockMarketDataAdminControllerWebMvcTest.TestSecurityConfig.class)
+@Import(StockMarketDataRefreshAdminControllerWebMvcTest.TestSecurityConfig.class)
 @ActiveProfiles("test")
-class StockMarketDataAdminControllerWebMvcTest {
+class StockMarketDataRefreshAdminControllerWebMvcTest {
 
     @Autowired
     private MockMvc mockMvc;

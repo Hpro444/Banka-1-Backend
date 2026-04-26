@@ -18,12 +18,12 @@ import java.util.List;
 @RestController
 @RequestMapping("/admin/stocks")
 @RequiredArgsConstructor
-public class StockMarketDataAdminController {
+public class StockMarketDataRefreshAdminController {
 
     private final StockMarketDataRefreshService stockMarketDataRefreshService;
 
     /**
-     * Triggers a one-shot refresh for one stock ticker.
+     * Triggers a 1-shot refresh for 1 stock ticker.
      *
      * @param ticker stock ticker to refresh
      * @return summary of the completed refresh operation
@@ -38,7 +38,7 @@ public class StockMarketDataAdminController {
     /**
      * Triggers a refresh for all persisted stock tickers.
      *
-     * @return one result entry per stock, in the order they were processed
+     * @return 1 result entry per stock, in the order they were processed
      */
     @PostMapping("/refresh-all")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPERVISOR')")
