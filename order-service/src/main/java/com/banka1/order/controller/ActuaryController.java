@@ -2,6 +2,8 @@ package com.banka1.order.controller;
 
 import com.banka1.order.dto.ActuaryAgentDto;
 import com.banka1.order.dto.SetLimitRequestDto;
+import com.banka1.order.dto.SetNeedApprovalRequestDto;
+import com.banka1.order.dto.SimpleResponse;
 import com.banka1.order.service.ActuaryService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -29,6 +31,7 @@ import java.util.List;
  *   <li>GET /actuaries/agents - List all agents with optional filtering</li>
  *   <li>PUT /actuaries/agents/{id}/limit - Update agent daily trading limit</li>
  *   <li>PUT /actuaries/agents/{id}/reset-limit - Reset agent's daily used limit</li>
+ *   <li>PUT /actuaries/agents/{id}/need-approval - Toggle agent's need-approval flag</li>
  * </ul>
  */
 @RestController
@@ -80,12 +83,12 @@ public class ActuaryController {
      */
     @PutMapping("/agents/{id}/limit")
     @PreAuthorize("hasRole('SUPERVISOR')")
-    public ResponseEntity<Void> setLimit(
+    public ResponseEntity<SimpleResponse> setLimit(
             @PathVariable Long id,
             @RequestBody @Valid SetLimitRequestDto request
     ) {
         actuaryService.setLimit(id, request);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(SimpleResponse.success("Limit updated successfully"));
     }
 
     /**
@@ -100,8 +103,34 @@ public class ActuaryController {
      */
     @PutMapping("/agents/{id}/reset-limit")
     @PreAuthorize("hasRole('SUPERVISOR')")
-    public ResponseEntity<Void> resetLimit(@PathVariable Long id) {
+    public ResponseEntity<SimpleResponse> resetLimit(@PathVariable Long id) {
         actuaryService.resetLimit(id);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(SimpleResponse.success("Limit reset successfully"));
+    }
+
+    /**
+     * Toggles the {@code needApproval} flag for the specified agent.
+     *
+     * When enabled, every order placed by the agent lands in the PENDING queue
+     * and requires explicit Approve/Decline by a supervisor, regardless of
+     * whether it fits within the agent's daily limit. Disabling the flag
+     * restores the normal flow where only over-limit or limit-exhausted orders
+     * need approval.
+     *
+     * Only employees with the AGENT role can have the flag toggled; supervisors
+     * (and admins) always operate without approval.
+     *
+     * @param id      the employee ID of the agent
+     * @param request request body containing the new {@code needApproval} value
+     * @return 200 OK on success
+     */
+    @PutMapping("/agents/{id}/need-approval")
+    @PreAuthorize("hasRole('SUPERVISOR')")
+    public ResponseEntity<SimpleResponse> setNeedApproval(
+            @PathVariable Long id,
+            @RequestBody @Valid SetNeedApprovalRequestDto request
+    ) {
+        actuaryService.setNeedApproval(id, request);
+        return ResponseEntity.ok(SimpleResponse.success("Need-approval flag updated successfully"));
     }
 }
