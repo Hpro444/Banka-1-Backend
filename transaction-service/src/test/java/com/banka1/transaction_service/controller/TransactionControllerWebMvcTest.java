@@ -62,7 +62,7 @@ class TransactionControllerWebMvcTest {
     }
 
     @Test
-    void newPaymentReturnsForbiddenForEmployee() throws Exception {
+    void newPaymentReturnsInternalServerErrorForEmployeeBecauseAccessDeniedIsHandledGlobally() throws Exception {
         NewPaymentDto dto = validPaymentDto();
 
         mockMvc.perform(post("/payment")

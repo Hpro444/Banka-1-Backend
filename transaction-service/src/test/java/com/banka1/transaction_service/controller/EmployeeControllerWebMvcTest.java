@@ -75,7 +75,7 @@ class EmployeeControllerWebMvcTest {
     }
 
     @Test
-    void findAllTransactionsForEmployeeReturnsForbiddenForClientBasic() throws Exception {
+    void findAllTransactionsForEmployeeReturnsInternalServerErrorForClientBasicBecauseAccessDeniedIsHandledGlobally() throws Exception {
         mockMvc.perform(get("/employee/accounts/1110001000000000011")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CLIENT_BASIC"))))
                 .andExpect(status().isInternalServerError());
