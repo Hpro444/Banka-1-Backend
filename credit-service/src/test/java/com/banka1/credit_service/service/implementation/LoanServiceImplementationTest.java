@@ -23,6 +23,7 @@ import com.banka1.credit_service.repository.InstallmentRepository;
 import com.banka1.credit_service.repository.LoanRepository;
 import com.banka1.credit_service.repository.LoanRequestRepository;
 import com.banka1.credit_service.rest_client.AccountService;
+import com.banka1.credit_service.rest_client.ClientService;
 import com.banka1.credit_service.rest_client.ExchangeService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,6 +73,8 @@ class LoanServiceImplementationTest {
     private LoanRepository loanRepository;
     @Mock
     private RabbitClient rabbitClient;
+    @Mock
+    private ClientService clientService;
 
     @InjectMocks
     private LoanServiceImplementation service;
