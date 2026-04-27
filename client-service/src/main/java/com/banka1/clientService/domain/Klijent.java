@@ -138,6 +138,11 @@ public class Klijent extends BaseEntity {
     @Column(nullable = false, unique = true, length = 13)
     private String jmbg;
 
+    @ElementCollection(targetClass = Permission.class)
+    @CollectionTable(
+            name = "client_permissions",
+            joinColumns = @JoinColumn(name = "client_id")
+    )
     @Column(name = "permission", nullable = false)
     @Enumerated(EnumType.STRING)
     private Set<Permission> permissionSet = new HashSet<>();
