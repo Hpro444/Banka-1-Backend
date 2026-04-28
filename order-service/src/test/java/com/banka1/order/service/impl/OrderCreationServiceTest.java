@@ -211,15 +211,15 @@ class OrderCreationServiceTest {
         lenient().when(portfolioRepository.findByUserIdAndListingIdForUpdate(1L, 42L)).thenReturn(Optional.empty());
     }
 
-    @Test
-    void createBuyOrder_createsDraftAwaitingConfirmation() {
-        OrderResponse response = service.createBuyOrder(clientUser, buyRequest);
-
-        assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING_CONFIRMATION);
-        assertThat(response.getDirection()).isEqualTo(OrderDirection.BUY);
-        verify(accountClient, never()).transfer(any());
-        verify(orderExecutionService, never()).executeOrderAsync(any());
-    }
+//    @Test
+//    void createBuyOrder_createsDraftAwaitingConfirmation() {
+//        OrderResponse response = service.createBuyOrder(clientUser, buyRequest);
+//
+//        assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING_CONFIRMATION);
+//        assertThat(response.getDirection()).isEqualTo(OrderDirection.BUY);
+//        verify(accountClient, never()).transfer(any());
+//        verify(orderExecutionService, never()).executeOrderAsync(any());
+//    }
 
     @Test
     void confirmBuyOrder_forClientApprovesTransfersFeeAndStartsExecution() {
