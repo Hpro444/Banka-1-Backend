@@ -1,0 +1,79 @@
+version: "3.9"
+
+services:
+  postgres_banking:
+    image: postgres:15
+    container_name: postgres_banking
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${BANKING_DB_NAME}
+      POSTGRES_USER: ${BANKING_DB_USER}
+      POSTGRES_PASSWORD: ${BANKING_DB_PASSWORD}
+    ports:
+      - "${BANKING_DB_EXTERNAL_PORT:-5440}:5432"
+    volumes:
+      - postgres_banking_data:/var/lib/postgresql/data
+    networks:
+      - banka-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "${RABBITMQ_PORT}:${RABBITMQ_PORT}"
+      - "${RABBITMQ_MANAGEMENT_PORT}:${RABBITMQ_MANAGEMENT_PORT}"
+    networks:
+      - banka-network
+
+#  banking-service:
+#    build:
+#      context: ..
+#      dockerfile: banking-service/Dockerfile
+#    container_name: banking-service
+#    restart: unless-stopped
+#    depends_on:
+#      - postgres_banking
+#      - rabbitmq
+#    environment:
+#      BANKING_SERVER_PORT: ${BANKING_SERVER_PORT}
+#      SERVER_PORT: ${BANKING_SERVER_PORT}
+#
+#      BANKING_DB_HOST: localhost
+#      BANKING_DB_PORT: 5432
+#      BANKING_DB_NAME: ${BANKING_DB_NAME}
+#      BANKING_DB_USER: ${BANKING_DB_USER}
+#      BANKING_DB_PASSWORD: ${BANKING_DB_PASSWORD}
+#
+#      SERVICES_USER_URL: ${SERVICES_USER_URL}
+#      CLIENT_SERVICE_HOST: ${CLIENT_SERVICE_HOST}
+#      CLIENT_SERVER_PORT: ${CLIENT_SERVER_PORT}
+#      SERVICES_CARD_URL: ${SERVICES_CARD_URL}
+#      SERVICES_VERIFICATION_URL: ${SERVICES_VERIFICATION_URL}
+#      SERVICES_EXCHANGE_URL: ${SERVICES_EXCHANGE_URL}
+#      SKIP_VERIFICATION: ${SKIP_VERIFICATION}
+#
+#      RABBITMQ_HOST: ${RABBITMQ_HOST}
+#      RABBITMQ_PORT: ${RABBITMQ_PORT}
+#      RABBITMQ_MANAGEMENT_PORT: ${RABBITMQ_MANAGEMENT_PORT}
+#      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+#      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+#      NOTIFICATION_QUEUE: ${NOTIFICATION_QUEUE}
+#      NOTIFICATION_EXCHANGE: ${NOTIFICATION_EXCHANGE}
+#      NOTIFICATION_ROUTING_KEY: ${NOTIFICATION_ROUTING_KEY}
+#
+#      JWT_SECRET: ${JWT_SECRET}
+#    ports:
+#      - "${BANKING_SERVER_PORT}:${BANKING_SERVER_PORT}"
+#    networks:
+#      - banka-network
+
+volumes:
+  postgres_banking_data:
+
+networks:
+  banka-network:
+    driver: bridge

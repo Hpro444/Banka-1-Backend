@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.17.xsd">
+
+    <!-- account-service tables -->
+    <changeSet id="account-001-initial-schema" author="ognjen">
+        <sqlFile path="db/changelog/account/001-initial-schema.sql" splitStatements="false"/>
+    </changeSet>
+    <changeSet id="account-002-seed-data" author="ognjen">
+        <sqlFile path="db/changelog/account/002-seed-data.sql" splitStatements="true"/>
+    </changeSet>
+    <changeSet id="account-003-seed-client-accounts" author="account-service">
+        <sqlFile path="db/changelog/account/003-seed-client-accounts.sql" splitStatements="true"/>
+    </changeSet>
+    <changeSet id="account-004-fix-bank-account-concrete" author="account-service">
+        <sqlFile path="db/changelog/account/004-fix-bank-account-concrete.sql" splitStatements="true"/>
+    </changeSet>
+    <changeSet id="account-005-seed-state-company-and-account" author="account-service">
+        <sqlFile path="db/changelog/account/005-seed-state-company-and-account.sql" splitStatements="true"/>
+    </changeSet>
+
+    <!-- credit-service tables -->
+    <changeSet id="credit-001-initial-schema" author="ognjen">
+        <sqlFile path="db/changelog/credit/001-initial-schema.sql" splitStatements="false"/>
+    </changeSet>
+
+    <!-- transaction-service tables -->
+    <changeSet id="transaction-001-payment-table" author="ognjen">
+        <sqlFile path="db/changelog/transaction/001-initial-schema.sql" splitStatements="true"/>
+    </changeSet>
+    <changeSet id="transaction-002-seed-data" author="account-service">
+        <sqlFile path="db/changelog/transaction/002-seed-data.sql" splitStatements="true"/>
+    </changeSet>
+
+    <!-- transfer-service tables -->
+    <changeSet id="transfer-001-transfer-schema" author="transfer-service">
+        <sqlFile path="db/changelog/transfer/001-transfer-schema.sql" splitStatements="true"/>
+    </changeSet>
+
+</databaseChangeLog>
