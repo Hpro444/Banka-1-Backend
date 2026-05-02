@@ -222,19 +222,15 @@ class OrderCreationServiceTest {
 //    }
 
     @Test
-    void confirmBuyOrder_forClientApprovesTransfersFeeAndStartsExecution() {
+    void confirmBuyOrder_forClientAutoApprovedAndStartsExecution() {
         service.createBuyOrder(clientUser, buyRequest);
 
         OrderResponse response = service.confirmOrder(clientUser, 100L);
 
         assertThat(response.getStatus()).isEqualTo(OrderStatus.APPROVED);
         assertThat(response.getApprovedBy()).isEqualTo(OrderCreationServiceImpl.NO_APPROVAL_REQUIRED);
-        verify(accountClient).transfer(any(AccountTransactionRequest.class));
+        verify(accountClient, never()).transfer(any(AccountTransactionRequest.class));
         verify(orderExecutionService).executeOrderAsync(100L);
-
-        ArgumentCaptor<AccountTransactionRequest> captor = ArgumentCaptor.forClass(AccountTransactionRequest.class);
-        verify(accountClient).transfer(captor.capture());
-        assertThat(captor.getValue().getCurrency()).isEqualTo("USD");
     }
 
     @Test

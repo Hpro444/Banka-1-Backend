@@ -5,7 +5,6 @@ import com.banka1.order.client.EmployeeClient;
 import com.banka1.order.client.ExchangeClient;
 import com.banka1.order.client.StockClient;
 import com.banka1.order.dto.AccountDetailsDto;
-import com.banka1.order.dto.AccountTransactionRequest;
 import com.banka1.order.dto.AuthenticatedUser;
 import com.banka1.order.dto.BankAccountDto;
 import com.banka1.order.dto.CreateBuyOrderRequest;
@@ -30,6 +29,9 @@ import com.banka1.order.exception.BadRequestException;
 import com.banka1.order.exception.BusinessConflictException;
 import com.banka1.order.exception.ForbiddenOperationException;
 import com.banka1.order.exception.ResourceNotFoundException;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.banka1.order.rabbitmq.OrderNotificationProducer;
 import com.banka1.order.repository.ActuaryInfoRepository;
 import com.banka1.order.repository.OrderRepository;
@@ -86,6 +88,7 @@ public class OrderCreationServiceImpl implements OrderCreationService {
     private static final String LIMIT_CURRENCY = "RSD";
     private static final String USD = "USD";
 
+
     private final OrderRepository orderRepository;
     private final ActuaryInfoRepository actuaryInfoRepository;
     private final PortfolioRepository portfolioRepository;
@@ -105,6 +108,9 @@ public class OrderCreationServiceImpl implements OrderCreationService {
         validateTradingAccess(user, listing);
         ExchangeWindow exchangeWindow = resolveExchangeWindow(listing);
         Long accountId = initialBuyAccountId(user, request.getAccountId(), listing.getCurrency());
+        if (user.isClient()) {
+            validateClientAccount(user.userId(), accountId);
+        }
         OrderType orderType = determineOrderType(request.getLimitValue(), request.getStopValue());
         BigDecimal approximatePrice = calculateApproximatePrice(orderType, OrderDirection.BUY, listing, request.getQuantity(),
                 request.getLimitValue(), request.getStopValue());
@@ -222,7 +228,9 @@ public class OrderCreationServiceImpl implements OrderCreationService {
             return mapToResponse(order, approximatePrice, fee, order.getExchangeClosed());
         }
 
-        Long fundingAccountId = determineFundingAccountId(user.userId(), order.getAccountId(), listing.getCurrency());
+        Long fundingAccountId = user.isClient()
+                ? order.getAccountId()
+                : determineFundingAccountId(user.userId(), order.getAccountId(), listing.getCurrency());
         if (order.getDirection() == OrderDirection.BUY && !user.isClient()) {
             order.setAccountId(fundingAccountId);
         }
@@ -231,7 +239,9 @@ public class OrderCreationServiceImpl implements OrderCreationService {
         } else if (order.getDirection() == OrderDirection.BUY) {
             checkFunds(fundingAccountId, approximatePrice.add(fee));
         }
-        ApprovalReservationDecision decision = determineOrderStatusAndReserveExposure(user.userId(), approximatePrice, listing.getCurrency());
+        ApprovalReservationDecision decision = user.isClient()
+                ? new ApprovalReservationDecision(OrderStatus.APPROVED, BigDecimal.ZERO)
+                : determineOrderStatusAndReserveExposure(user.userId(), approximatePrice, listing.getCurrency());
         reserveSellQuantityIfNeeded(order);
         if (decision.status() == OrderStatus.APPROVED) {
             transferFee(user, fundingAccountId, fee, listing.getCurrency());
@@ -243,7 +253,17 @@ public class OrderCreationServiceImpl implements OrderCreationService {
         order = orderRepository.save(order);
 
         if (decision.status() == OrderStatus.APPROVED) {
-            orderExecutionService.executeOrderAsync(order.getId());
+            final Long approvedOrderId = order.getId();
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        orderExecutionService.executeOrderAsync(approvedOrderId);
+                    }
+                });
+            } else {
+                orderExecutionService.executeOrderAsync(approvedOrderId);
+            }
         }
         return mapToResponse(order, approximatePrice, fee, order.getExchangeClosed());
     }
@@ -295,7 +315,17 @@ public class OrderCreationServiceImpl implements OrderCreationService {
         order.setApprovedBy(supervisorId);
         order = orderRepository.save(order);
         publishOrderDecisionNotification(order, supervisorId, OrderStatus.APPROVED);
-        orderExecutionService.executeOrderAsync(order.getId());
+        final Long approvedOrderId = order.getId();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    orderExecutionService.executeOrderAsync(approvedOrderId);
+                }
+            });
+        } else {
+            orderExecutionService.executeOrderAsync(approvedOrderId);
+        }
 
         return mapToResponse(order, approximatePrice, fee, order.getExchangeClosed());
     }
@@ -537,6 +567,18 @@ public class OrderCreationServiceImpl implements OrderCreationService {
         return listing.getUnderlyingPrice() != null ? listing.getUnderlyingPrice() : listing.getPrice();
     }
 
+    private void validateClientAccount(Long userId, Long accountId) {
+        AccountDetailsDto account;
+        try {
+            account = accountClient.getAccountDetails(accountId);
+        } catch (HttpClientErrorException.NotFound e) {
+            throw new BadRequestException("Account not found: " + accountId);
+        }
+        if (account.getOwnerId() != null && !account.getOwnerId().equals(userId)) {
+            throw new ForbiddenOperationException("Account does not belong to this user");
+        }
+    }
+
     private void checkFunds(Long accountId, BigDecimal totalAmount) {
         AccountDetailsDto account = accountClient.getAccountDetails(accountId);
         BigDecimal balance = account.getBalance() == null ? BigDecimal.ZERO : account.getBalance();
@@ -547,10 +589,15 @@ public class OrderCreationServiceImpl implements OrderCreationService {
 
     private BigDecimal calculateFee(OrderType orderType, BigDecimal approximatePrice, String currency) {
         BigDecimal rate = isMarketFamily(orderType) ? new BigDecimal("0.14") : new BigDecimal("0.24");
-        BigDecimal maxFeeUsd = isMarketFamily(orderType) ? new BigDecimal("7") : new BigDecimal("12");
-        BigDecimal maxFee = convertAmount(USD, currency, maxFeeUsd);
         BigDecimal fee = approximatePrice.multiply(rate).setScale(2, RoundingMode.HALF_UP);
-        return fee.min(maxFee);
+        try {
+            BigDecimal maxFeeUsd = isMarketFamily(orderType) ? new BigDecimal("7") : new BigDecimal("12");
+            BigDecimal maxFee = convertAmount(USD, currency, maxFeeUsd);
+            return fee.min(maxFee);
+        } catch (Exception e) {
+            log.warn("Cannot convert fee cap from USD to {}, applying uncapped fee rate", currency);
+            return fee;
+        }
     }
 
     private boolean isMarketFamily(OrderType orderType) {
@@ -829,13 +876,15 @@ public class OrderCreationServiceImpl implements OrderCreationService {
         AccountDetailsDto fromAccount = accountClient.getAccountDetails(fromAccountId);
         AccountDetailsDto toAccount = accountClient.getAccountDetails(toAccountId);
         if (fromAccount.getCurrency() == null || fromAccount.getCurrency().equalsIgnoreCase(targetCurrency)) {
-            AccountTransactionRequest transferRequest = new AccountTransactionRequest();
-            transferRequest.setFromAccountId(fromAccountId);
-            transferRequest.setToAccountId(toAccountId);
-            transferRequest.setAmount(targetAmount);
-            transferRequest.setCurrency(targetCurrency);
-            transferRequest.setDescription(description);
-            accountClient.transfer(transferRequest);
+            PaymentDto payment = new PaymentDto(
+                    fromAccount.getAccountNumber(),
+                    toAccount.getAccountNumber(),
+                    targetAmount,
+                    targetAmount,
+                    BigDecimal.ZERO,
+                    fromAccount.getOwnerId()
+            );
+            accountClient.transaction(payment);
             return;
         }
 
