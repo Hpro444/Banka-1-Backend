@@ -403,26 +403,27 @@ class OrderExecutionServiceTest {
     }
 
     @Test
-    void executeOrderPortion_skipsWhenAskQuoteMissing() {
+    void executeOrderPortion_fallsToPriceWhenAskMissing() {
         listing.setAsk(null);
+        when(portfolioRepository.findByUserIdAndListingIdForUpdate(1L, 42L)).thenReturn(Optional.empty());
 
         service.executeOrderPortion(order);
 
-        verify(transactionRepository, never()).save(any(Transaction.class));
-        verify(accountClient, never()).transaction(any(PaymentDto.class));
-        verify(portfolioRepository, never()).save(any(Portfolio.class));
+        ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
+        verify(transactionRepository).save(captor.capture());
+        assertThat(captor.getValue().getPricePerUnit()).isEqualByComparingTo("100.00");
     }
 
     @Test
-    void executeOrderPortion_skipsWhenBidQuoteMissing() {
+    void executeOrderPortion_fallsToPriceWhenBidMissing() {
         order.setDirection(OrderDirection.SELL);
         listing.setBid(null);
 
         service.executeOrderPortion(order);
 
-        verify(transactionRepository, never()).save(any(Transaction.class));
-        verify(accountClient, never()).transaction(any(PaymentDto.class));
-        verify(portfolioRepository, never()).save(any(Portfolio.class));
+        ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
+        verify(transactionRepository).save(captor.capture());
+        assertThat(captor.getValue().getPricePerUnit()).isEqualByComparingTo("100.00");
     }
 
     @Test
@@ -446,8 +447,10 @@ class OrderExecutionServiceTest {
     }
 
     @Test
-    void calculateExecutionDelay_usesRetryDelayWhenQuoteDataMissing() {
+    void calculateExecutionDelay_usesRetryDelayWhenPriceMissing() {
+        listing.setPrice(null);
         listing.setAsk(null);
+        listing.setBid(null);
 
         long delay = (long) ReflectionTestUtils.invokeMethod(service, "calculateExecutionDelay", order);
 

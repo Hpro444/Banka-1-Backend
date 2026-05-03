@@ -214,18 +214,12 @@ public class OrderExecutionServiceImpl implements OrderExecutionService {
     }
 
     private boolean canEvaluateStop(Order order, StockListingDto listing) {
-        BigDecimal quote = order.getDirection() == OrderDirection.BUY ? listing.getAsk() : listing.getBid();
-        if (quote == null) {
-            log.warn("Skipping STOP activation for order {}: {} quote is unavailable",
-                    order.getId(),
-                    order.getDirection() == OrderDirection.BUY ? "ask" : "bid");
-            return false;
-        }
-        return true;
+        BigDecimal quote = effectiveQuote(order.getDirection(), listing);
+        return quote != null;
     }
 
     private boolean isStopActivated(Order order, StockListingDto listing) {
-        BigDecimal quote = order.getDirection() == OrderDirection.BUY ? listing.getAsk() : listing.getBid();
+        BigDecimal quote = effectiveQuote(order.getDirection(), listing);
         return order.getDirection() == OrderDirection.BUY
                 ? quote.compareTo(order.getStopValue()) >= 0
                 : quote.compareTo(order.getStopValue()) < 0;
@@ -236,22 +230,19 @@ public class OrderExecutionServiceImpl implements OrderExecutionService {
             return true;
         }
         if (order.getOrderType() == OrderType.LIMIT && order.getDirection() == OrderDirection.BUY) {
-            BigDecimal ask = listing.getAsk();
-            if (ask == null) {
-                log.warn("Skipping BUY LIMIT eligibility check for order {}: ask quote is unavailable", order.getId());
-                return false;
-            }
-            return ask.compareTo(order.getLimitValue()) <= 0;
+            BigDecimal ask = effectiveQuote(OrderDirection.BUY, listing);
+            return ask != null && ask.compareTo(order.getLimitValue()) <= 0;
         }
         if (order.getOrderType() == OrderType.LIMIT) {
-            BigDecimal bid = listing.getBid();
-            if (bid == null) {
-                log.warn("Skipping SELL LIMIT eligibility check for order {}: bid quote is unavailable", order.getId());
-                return false;
-            }
-            return bid.compareTo(order.getLimitValue()) >= 0;
+            BigDecimal bid = effectiveQuote(OrderDirection.SELL, listing);
+            return bid != null && bid.compareTo(order.getLimitValue()) >= 0;
         }
         return false;
+    }
+
+    private BigDecimal effectiveQuote(OrderDirection direction, StockListingDto listing) {
+        BigDecimal quote = direction == OrderDirection.BUY ? listing.getAsk() : listing.getBid();
+        return quote != null ? quote : listing.getPrice();
     }
 
     private Integer currentExecutableCapacity(Order order, StockListingDto listing) {
@@ -271,27 +262,16 @@ public class OrderExecutionServiceImpl implements OrderExecutionService {
             case MARKET -> {
                 BigDecimal marketQuote = order.getDirection() == OrderDirection.BUY ? listing.getAsk() : listing.getBid();
                 if (marketQuote == null) {
-                    log.warn("Skipping MARKET execution for order {}: {} quote is unavailable",
-                            order.getId(),
-                            order.getDirection() == OrderDirection.BUY ? "ask" : "bid");
-                    yield Optional.empty();
+                    marketQuote = listing.getPrice();
                 }
                 yield Optional.of(marketQuote);
             }
             case LIMIT -> {
                 if (order.getDirection() == OrderDirection.BUY) {
-                    BigDecimal ask = listing.getAsk();
-                    if (ask == null) {
-                        log.warn("Skipping BUY LIMIT execution for order {}: ask quote is unavailable", order.getId());
-                        yield Optional.empty();
-                    }
+                    BigDecimal ask = listing.getAsk() != null ? listing.getAsk() : listing.getPrice();
                     yield Optional.of(order.getLimitValue().min(ask));
                 }
-                BigDecimal bid = listing.getBid();
-                if (bid == null) {
-                    log.warn("Skipping SELL LIMIT execution for order {}: bid quote is unavailable", order.getId());
-                    yield Optional.empty();
-                }
+                BigDecimal bid = listing.getBid() != null ? listing.getBid() : listing.getPrice();
                 yield Optional.of(order.getLimitValue().max(bid));
             }
             case STOP, STOP_LIMIT -> throw new IllegalStateException("Stop-family orders must be activated before execution");
@@ -420,10 +400,8 @@ public class OrderExecutionServiceImpl implements OrderExecutionService {
         if (listing == null || listing.getPrice() == null) {
             return false;
         }
-        if (order.getDirection() == OrderDirection.BUY) {
-            return listing.getAsk() != null;
-        }
-        return listing.getBid() != null;
+        // ask/bid fall back to price if the stock service doesn't provide them separately
+        return true;
     }
 
     private BigDecimal convertAmount(String fromCurrency, String toCurrency, BigDecimal amount) {
